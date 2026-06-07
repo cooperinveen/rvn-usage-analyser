@@ -167,38 +167,23 @@ def parse_file(file_bytes, filename):
         last_seen = grp['_utc_start'].max()
         days_in_rotation = max(1, (last_seen - first_seen).days + 1) if pd.notna(first_seen) and pd.notna(last_seen) else 1
 
-        # Top 5 channels for this story
-        ch_counts = grp.groupby('_channel').agg(
+        # All channels for this story (used in modal channel breakdown)
+        ch_agg = grp.groupby('_channel').agg(
             airings=('_actual_secs', 'count'),
             air_secs=('_actual_secs', 'sum'),
             country=('_market', 'first')
-        ).reset_index().sort_values('airings', ascending=False).head(5)
-        top_channels = ch_counts.to_dict('records')
-        for c in top_channels:
+        ).reset_index().sort_values('airings', ascending=False)
+        all_channels = ch_agg.to_dict('records')
+        for c in all_channels:
             c['channel'] = c.pop('_channel')
             c['air_time'] = _seconds_to_hms(c['air_secs'])
             del c['air_secs']
 
-        # Top 5 markets for this story
+        # All markets for this story
         mkt_counts = grp.groupby('_market')['_actual_secs'].count().reset_index()
         mkt_counts.columns = ['market', 'airings']
-        mkt_counts = mkt_counts.sort_values('airings', ascending=False).head(5)
-        top_markets = mkt_counts.to_dict('records')
-
-        # Individual detections (all rows), sorted by UTC start
-        detections = []
-        det_grp = grp.sort_values('_utc_start')
-        for _, row in det_grp.iterrows():
-            utc = row['_utc_start']
-            local = row['_local_start']
-            detections.append({
-                'channel': row['_channel'],
-                'market': row['_market'],
-                'utc': utc.strftime('%d %b %Y %H:%M UTC') if pd.notna(utc) else '',
-                'local': local.strftime('%d %b %Y %H:%M') if pd.notna(local) else '',
-                'air_time': _seconds_to_hms(row['_actual_secs']),
-                'air_secs': int(row['_actual_secs']),
-            })
+        mkt_counts = mkt_counts.sort_values('airings', ascending=False)
+        all_markets = mkt_counts.to_dict('records')
 
         # Regions represented
         regions = grp['_region'].value_counts().to_dict()
@@ -218,9 +203,8 @@ def parse_file(file_bytes, filename):
             'first_seen': first_seen.strftime('%d %b %Y %H:%M') if pd.notna(first_seen) else '',
             'last_seen': last_seen.strftime('%d %b %Y %H:%M') if pd.notna(last_seen) else '',
             'days_in_rotation': int(days_in_rotation),
-            'top_channels': top_channels,
-            'top_markets': top_markets,
-            'detections': detections,
+            'all_channels': all_channels,
+            'all_markets': all_markets,
             'regions': regions,
         })
 
@@ -332,8 +316,8 @@ def generate_export(stories):
 
     # Data rows
     for row_idx, story in enumerate(stories, 2):
-        top_ch = story['top_channels'][0].get('channel', '') if story['top_channels'] else ''
-        top_mkt = story['top_markets'][0]['market'] if story['top_markets'] else ''
+        top_ch = story['all_channels'][0].get('channel', '') if story['all_channels'] else ''
+        top_mkt = story['all_markets'][0]['market'] if story['all_markets'] else ''
 
         row_data = [
             story['slug'],

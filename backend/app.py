@@ -44,15 +44,9 @@ def upload():
     _current_data.clear()
     _current_data.update(data)
 
-    # Return everything except the full detections list (too large for initial load)
-    # Detections are fetched per-story via /api/story/<slug>
-    stories_light = []
-    for s in data['stories']:
-        stories_light.append({k: v for k, v in s.items() if k != 'detections'})
-
     return jsonify({
         'summary': data['summary'],
-        'stories': stories_light,
+        'stories': data['stories'],
         'top_channels': data['top_channels'],
         'top_markets': data['top_markets'],
         'date_range': data['date_range'],

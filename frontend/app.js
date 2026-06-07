@@ -339,22 +339,15 @@ $('btn-next').addEventListener('click', () => {
 });
 
 // ── Story Detail Modal ────────────────────────────────────────────────────────
-async function openStoryModal(slug) {
+function openStoryModal(slug) {
+    const story = state.allStories.find(s => s.slug === slug);
+    if (!story) return;
+
     modalSlug.textContent = slug;
-    modalStoryId.textContent = '';
-    modalBody.innerHTML = '<div class="modal-loading">Loading story data…</div>';
+    modalStoryId.textContent = story.story_id || '';
     storyModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-
-    try {
-        const res = await fetch(`/api/story/${encodeURIComponent(slug)}`);
-        const story = await res.json();
-        if (!res.ok) { modalBody.innerHTML = `<p style="color:red">${escHtml(story.error)}</p>`; return; }
-        modalStoryId.textContent = story.story_id || '';
-        renderModalBody(story);
-    } catch (err) {
-        modalBody.innerHTML = '<p style="color:red">Could not load story data.</p>';
-    }
+    renderModalBody(story);
 }
 
 function renderModalBody(s) {
@@ -362,7 +355,7 @@ function renderModalBody(s) {
         ? `Clients used an average of <strong>${escHtml(s.avg_clip)}</strong> from a <strong>${escHtml(s.asset_length)}</strong> story.`
         : `Average clip used: <strong>${escHtml(s.avg_clip)}</strong>`;
 
-    const channelRows = s.top_channels.map(c => `
+    const allChannelRows = s.all_channels.map(c => `
         <tr>
             <td>${escHtml(c.channel || '')}</td>
             <td>${escHtml(c.country || '')}</td>
@@ -370,47 +363,11 @@ function renderModalBody(s) {
             <td class="num">${escHtml(c.air_time)}</td>
         </tr>`).join('');
 
-    // All channels (not just top 5)
-    const allChannelCounts = {};
-    s.detections.forEach(d => {
-        if (!allChannelCounts[d.channel]) allChannelCounts[d.channel] = { airings: 0, air_secs: 0, country: d.market };
-        allChannelCounts[d.channel].airings++;
-        allChannelCounts[d.channel].air_secs += d.air_secs;
-    });
-    const allChannels = Object.entries(allChannelCounts)
-        .map(([ch, v]) => ({ channel: ch, ...v }))
-        .sort((a, b) => b.airings - a.airings);
-
-    const allChannelRows = allChannels.map(c => `
+    const countryRows = s.all_markets.map(m => `
         <tr>
-            <td>${escHtml(c.channel)}</td>
-            <td>${escHtml(c.country)}</td>
-            <td class="num">${c.airings}</td>
-            <td class="num">${secsToHms(c.air_secs)}</td>
+            <td>${escHtml(m.market)}</td>
+            <td class="num">${m.airings}</td>
         </tr>`).join('');
-
-    // Country breakdown
-    const countryCounts = {};
-    s.detections.forEach(d => {
-        countryCounts[d.market] = (countryCounts[d.market] || 0) + 1;
-    });
-    const countries = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
-    const countryRows = countries.map(([mkt, count]) => `
-        <tr>
-            <td>${escHtml(mkt)}</td>
-            <td class="num">${count}</td>
-        </tr>`).join('');
-
-    // First 10 detections
-    const first10 = s.detections.slice(0, 10);
-    const rest = s.detections.slice(10);
-    const detectionRows = (dets) => dets.map(d => `
-        <div class="detection-row">
-            <span class="detection-channel">${escHtml(d.channel)}</span>
-            <span class="detection-market">${escHtml(d.market)}</span>
-            <span class="detection-time">${escHtml(d.local || d.utc)}</span>
-            <span class="detection-duration">${escHtml(d.air_time)}</span>
-        </div>`).join('');
 
     modalBody.innerHTML = `
         <!-- 1. Headline Stats -->
@@ -446,7 +403,7 @@ function renderModalBody(s) {
 
         <!-- 2. Channel Breakdown -->
         <div class="modal-section">
-            <p class="modal-section-title">Channel Breakdown (${allChannels.length} channel${allChannels.length === 1 ? '' : 's'})</p>
+            <p class="modal-section-title">Channel Breakdown (${s.all_channels.length} channel${s.all_channels.length === 1 ? '' : 's'})</p>
             <div class="modal-table-wrap">
                 <table class="modal-table">
                     <thead><tr><th>Channel</th><th>Country</th><th>Airings</th><th>Air Time</th></tr></thead>
@@ -457,7 +414,7 @@ function renderModalBody(s) {
 
         <!-- 3. Country Breakdown -->
         <div class="modal-section">
-            <p class="modal-section-title">Country Breakdown (${countries.length} countr${countries.length === 1 ? 'y' : 'ies'})</p>
+            <p class="modal-section-title">Country Breakdown (${s.all_markets.length} countr${s.all_markets.length === 1 ? 'y' : 'ies'})</p>
             <div class="modal-table-wrap">
                 <table class="modal-table">
                     <thead><tr><th>Country</th><th>Airings</th></tr></thead>
@@ -465,35 +422,7 @@ function renderModalBody(s) {
                 </table>
             </div>
         </div>
-
-        <!-- 4. Individual Airings -->
-        <div class="modal-section">
-            <p class="modal-section-title">Individual Airings (${s.detections.length} total)</p>
-            <div class="detections-list" id="detections-list">
-                ${detectionRows(first10)}
-            </div>
-            ${rest.length > 0 ? `
-            <button class="detections-toggle" id="detections-toggle" onclick="expandDetections(${JSON.stringify(rest).replace(/"/g, '&quot;')})">
-                ▸ Show all ${s.detections.length} airings
-            </button>` : ''}
-        </div>
     `;
-}
-
-function expandDetections(rest) {
-    const list = $('detections-list');
-    const btn = $('detections-toggle');
-    rest.forEach(d => {
-        const div = document.createElement('div');
-        div.className = 'detection-row';
-        div.innerHTML = `
-            <span class="detection-channel">${escHtml(d.channel)}</span>
-            <span class="detection-market">${escHtml(d.market)}</span>
-            <span class="detection-time">${escHtml(d.local || d.utc)}</span>
-            <span class="detection-duration">${escHtml(d.air_time)}</span>`;
-        list.appendChild(div);
-    });
-    btn.style.display = 'none';
 }
 
 // Close modal
