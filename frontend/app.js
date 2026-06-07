@@ -137,7 +137,11 @@ async function uploadToBlob(file) {
         const errText = await uploadRes.text().catch(() => '');
         throw new Error(`File upload to storage failed (${uploadRes.status}). ${errText}`);
     }
-    return await uploadRes.json();
+    // Vercel Blob may return empty body on overwrite — fall back to constructing URL from known store
+    let blobData;
+    try { blobData = await uploadRes.json(); } catch {}
+    const url = blobData?.url || `https://Wu7t55j7ojJBLHfF.public.blob.vercel-storage.com/${encodeURIComponent(pathname)}`;
+    return { url };
 }
 
 function loadData(data) {
