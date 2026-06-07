@@ -28,6 +28,7 @@ export default async function handler(req, res) {
                     'application/octet-stream',
                 ],
                 addRandomSuffix: false,
+                allowOverwrite: true,
                 // Public store required for client-side PUT uploads
                 access: 'public',
             }),
