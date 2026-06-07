@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in — RVN Usage Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .login-screen {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--tr-bg);
+        }
+        .login-card {
+            background: #fff;
+            border: 1px solid var(--tr-border);
+            border-radius: 8px;
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+        .login-logo {
+            height: 28px;
+            margin-bottom: 32px;
+        }
+        .login-title {
+            font-family: 'Clario', sans-serif;
+            font-size: 20px;
+            font-weight: 500;
+            color: var(--tr-text);
+            margin: 0 0 8px;
+        }
+        .login-subtitle {
+            font-size: 14px;
+            color: var(--tr-text-light);
+            margin: 0 0 32px;
+        }
+        .btn-ms {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 20px;
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .btn-ms:hover { background: #106ebe; }
+        .btn-ms svg { flex-shrink: 0; }
+        .login-error {
+            margin-top: 16px;
+            padding: 10px 14px;
+            background: #fff3f3;
+            border: 1px solid #fca5a5;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #b91c1c;
+            display: none;
+        }
+        .login-footer {
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--tr-text-light);
+        }
+    </style>
+</head>
+<body>
+<div class="login-screen">
+    <div class="login-card">
+        <img src="images/tr_pri_logo_rgb_color.png" alt="Thomson Reuters" class="login-logo">
+        <h1 class="login-title">RVN Usage Tracker</h1>
+        <p class="login-subtitle">Sign in with your Thomson Reuters account</p>
+
+        <a href="/auth/login" class="btn-ms">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 21 21">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+            </svg>
+            Sign in with Microsoft
+        </a>
+
+        <div class="login-error" id="login-error"></div>
+        <p class="login-footer">Access restricted to Thomson Reuters staff</p>
+    </div>
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    const messages = {
+        auth_failed: 'Sign-in failed. Please try again.',
+        session_expired: 'Your session expired. Please sign in again.',
+        unauthorized_domain: 'Access is restricted to Thomson Reuters email addresses.',
+    };
+    if (error && messages[error]) {
+        const el = document.getElementById('login-error');
+        el.textContent = messages[error];
+        el.style.display = 'block';
+    }
+</script>
+</body>
+</html>

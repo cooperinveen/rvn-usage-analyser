@@ -1,20 +1,103 @@
 import os
+import secrets
 import urllib.request
+from functools import wraps
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory, Response
+from flask import Flask, request, jsonify, send_from_directory, Response, session, redirect
 from backend.parser import parse_file, generate_export
 
 FRONTEND_DIR = str(Path(__file__).parent.parent / 'frontend')
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(32))
+
+# Trust Vercel's proxy so session cookies are marked Secure correctly
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+IS_PRODUCTION = os.environ.get('VERCEL') == '1'
+app.config.update(
+    SESSION_COOKIE_SECURE=IS_PRODUCTION,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+)
+
+# ── Auth helpers ──────────────────────────────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('user'):
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Not authenticated'}), 401
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ── Static / frontend ─────────────────────────────────────────────────────────
+
+@app.route('/login')
+def login_page():
+    if session.get('user'):
+        return redirect('/')
+    return send_from_directory(FRONTEND_DIR, 'login.html')
 
 
 @app.route('/')
+@login_required
 def index():
     return send_from_directory(FRONTEND_DIR, 'index.html')
 
 
+# ── Auth routes ───────────────────────────────────────────────────────────────
+
+@app.route('/auth/login')
+def auth_login():
+    from backend import auth
+    flow = auth.get_auth_flow()
+    session['auth_flow'] = flow
+    return redirect(flow['auth_uri'])
+
+
+@app.route('/auth/callback')
+def auth_callback():
+    from backend import auth
+    flow = session.pop('auth_flow', None)
+    if not flow:
+        return redirect('/login?error=session_expired')
+
+    try:
+        result = auth.handle_callback(flow, dict(request.args))
+        user = auth.get_user_info(result['access_token'])
+        upn = user.get('userPrincipalName', '')
+        if not auth.is_allowed_domain(upn):
+            return redirect('/login?error=unauthorized_domain')
+        session['user'] = {
+            'name': user.get('displayName', ''),
+            'email': upn,
+        }
+        return redirect('/')
+    except Exception:
+        return redirect('/login?error=auth_failed')
+
+
+@app.route('/auth/logout')
+def auth_logout():
+    session.clear()
+    return redirect('/login')
+
+
+@app.route('/api/me')
+@login_required
+def api_me():
+    return jsonify(session['user'])
+
+
+# ── Upload / process / export (all require login) ─────────────────────────────
+
 @app.route('/api/upload', methods=['POST'])
+@login_required
 def upload():
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
@@ -48,6 +131,7 @@ def upload():
 
 
 @app.route('/api/process', methods=['POST'])
+@login_required
 def process_blob():
     """Process a file already uploaded to Vercel Blob. Receives the blob URL, fetches, parses, deletes."""
     body = request.get_json(silent=True)
@@ -60,9 +144,6 @@ def process_blob():
     if not blob_url:
         return jsonify({'error': 'No blob URL provided'}), 400
 
-    # Only allow HTTPS URLs to the Vercel Blob public store.
-    # Blocks: file://, http://, SSRF to internal hosts, encoded-slash bypass (%2F in host),
-    # user-info bypass (user@host), IP literals, and subdomain-confusion attacks.
     ALLOWED_BLOB_SUFFIX = '.public.blob.vercel-storage.com'
     try:
         from urllib.parse import urlparse
@@ -71,15 +152,14 @@ def process_blob():
         if (
             parsed.scheme != 'https'
             or not hostname
-            or '%' in hostname                               # reject any percent-encoding in host
-            or '@' in blob_url.split('//')[1].split('/')[0]  # reject user-info
+            or '%' in hostname
+            or '@' in blob_url.split('//')[1].split('/')[0]
             or not hostname.endswith(ALLOWED_BLOB_SUFFIX)
         ):
             return jsonify({'error': 'Invalid file URL'}), 400
     except Exception:
         return jsonify({'error': 'Invalid file URL'}), 400
 
-    # Fetch the file from Vercel Blob (public store — no auth header needed)
     try:
         req = urllib.request.Request(blob_url)
         with urllib.request.urlopen(req, timeout=120) as resp:
@@ -97,7 +177,6 @@ def process_blob():
     except Exception as e:
         return jsonify({'error': f'Could not parse file: {str(e)}'}), 500
     finally:
-        # Delete the blob — we don't need it anymore
         blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN', '')
         if blob_url and blob_token:
             try:
@@ -108,7 +187,7 @@ def process_blob():
                 )
                 urllib.request.urlopen(del_req, timeout=10)
             except Exception:
-                pass  # Cleanup failure is non-fatal
+                pass
 
     return jsonify({
         'summary': data['summary'],
@@ -120,6 +199,7 @@ def process_blob():
 
 
 @app.route('/api/export', methods=['POST'])
+@login_required
 def export_summary():
     """Generate XLSX from stories supplied by the client — no server-side state."""
     body = request.get_json(silent=True)
