@@ -195,7 +195,7 @@ function renderInsights() {
     const maxAirings = topStories[0]?.airings || 1;
 
     $('top-stories-list').innerHTML = topStories.map((s, i) => `
-        <div class="insight-item" onclick="openStoryModal('${escHtml(s.slug)}')">
+        <div class="insight-item" data-slug="${escHtml(s.slug)}">
             <span class="insight-rank">${i + 1}</span>
             <div style="flex:1; min-width:0">
                 <div class="insight-name">${slugDisplay(s.slug)}</div>
@@ -342,7 +342,7 @@ function renderTable() {
             <td class="col-time">${escHtml(s.total_air_time)}</td>
             <td class="col-date">${escHtml(s.last_seen)}</td>
             <td class="col-action">
-                <button class="btn btn-ghost btn-sm" onclick="openStoryModal('${escHtml(s.slug)}')">View</button>
+                <button class="btn btn-ghost btn-sm" data-slug="${escHtml(s.slug)}">View</button>
             </td>
         </tr>`;
     }).join('');
@@ -477,6 +477,16 @@ function renderModalBody(s) {
         </div>
     `;
 }
+
+// Open modal via delegated listeners (avoids inline onclick, which CSP blocks)
+$('stories-tbody').addEventListener('click', e => {
+    const btn = e.target.closest('[data-slug]');
+    if (btn) openStoryModal(btn.dataset.slug);
+});
+$('top-stories-list').addEventListener('click', e => {
+    const item = e.target.closest('[data-slug]');
+    if (item) openStoryModal(item.dataset.slug);
+});
 
 // Close modal
 $('modal-close').addEventListener('click', closeModal);
