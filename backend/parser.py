@@ -68,16 +68,18 @@ def _seconds_to_hms(seconds):
 
 
 def _region_from_slug(slug):
-    """Derive editorial region from slug topic prefix (e.g. IRAN-CRISIS → Middle East)."""
+    """Derive editorial regions from slug (e.g. USA-CHINA/TARIFFS → {Americas, Asia Pacific}).
+    Returns a set — stories can belong to multiple regions."""
     if not slug:
-        return 'Other'
+        return {'Other'}
     import re
     s = str(slug).upper()
     # Strip simple ADVISORY / CORRECTION prefixes
     s = re.sub(r'^(ADVISORY|CORRECTION)[-\s]+', '', s).strip()
     # Strip numeric legacy prefixes (e.g. "3128WD GERMANY...")
     s = re.sub(r'^\d+[A-Z]{0,4}\s+', '', s)
-    topic = s.split('/')[0].split('-')[0].strip()
+    # Check every hyphen-separated token in the topic (before the /)
+    tokens = [t.strip() for t in s.split('/')[0].split('-') if t.strip()]
 
     AMERICAS = {
         'USA', 'US', 'TRUMP', 'BIDEN', 'OBAMA', 'CALIFORNIA', 'TEXAS', 'FLORIDA',
@@ -122,18 +124,19 @@ def _region_from_slug(slug):
         'POPE', 'VATICAN', 'BALTIC', 'NAGORNO', 'MIGRATION',
     }
 
-    # Egypt appears in both Middle East and Africa — Middle East takes priority
-    if topic in MIDDLE_EAST:
-        return 'Middle East'
-    if topic in AFRICA:
-        return 'Africa'
-    if topic in AMERICAS:
-        return 'Americas'
-    if topic in ASIA_PACIFIC:
-        return 'Asia Pacific'
-    if topic in EUROPE:
-        return 'Europe'
-    return 'Other'
+    regions = set()
+    for token in tokens:
+        if token in MIDDLE_EAST:
+            regions.add('Middle East')
+        elif token in AFRICA:
+            regions.add('Africa')
+        elif token in AMERICAS:
+            regions.add('Americas')
+        elif token in ASIA_PACIFIC:
+            regions.add('Asia Pacific')
+        elif token in EUROPE:
+            regions.add('Europe')
+    return regions if regions else {'Other'}
 
 
 def parse_file(file_bytes, filename):
@@ -231,9 +234,8 @@ def parse_file(file_bytes, filename):
         mkt_counts = mkt_counts.sort_values('airings', ascending=False)
         all_markets = mkt_counts.to_dict('records')
 
-        # Region derived from the story slug (not broadcast location)
-        story_region = _region_from_slug(slug)
-        regions = {story_region: 1}
+        # Regions derived from the story slug (not broadcast location); can be multiple
+        regions = {r: 1 for r in _region_from_slug(slug)}
 
         stories.append({
             'slug': slug,
