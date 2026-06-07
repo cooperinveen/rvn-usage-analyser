@@ -284,9 +284,10 @@ tbody tr:last-child td { border-bottom: none; }
 td.col-num { text-align: right; font-variant-numeric: tabular-nums; }
 td.col-date { font-size: 12px; color: var(--tr-text-light); }
 
-.slug-cell { max-width: 320px; }
-.slug-main { font-weight: 500; color: var(--tr-text); word-break: break-word; }
-.slug-topic { font-size: 11px; color: var(--tr-orange); font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+.slug-cell { max-width: 340px; }
+.slug-main { font-size: 11px; font-weight: 600; color: var(--tr-orange); text-transform: uppercase; letter-spacing: 0.3px; word-break: break-word; }
+.slug-headline { font-size: 13px; font-weight: 400; color: var(--tr-text); margin-top: 2px; word-break: break-word; }
+.insight-headline { font-size: 11px; color: var(--tr-text-light); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .airing-bar-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
 .airing-bar { height: 4px; background: var(--tr-orange); border-radius: 2px; min-width: 2px; }

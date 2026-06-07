@@ -12,6 +12,7 @@ COL_ALIASES = {
     'local_start': ['Local detection start', 'hitLocalDetectionStart', 'detection_start_date_time_local'],
     'story_id': ['Story ID', 'itemid', 'Item ID'],
     'slug': ['Slug line', 'slug', 'Slug'],
+    'headline': ['Headline', 'headline', 'Title', 'title'],
     'detection_duration': ['Detection duration', 'hitDetectionDuration', 'detection_length'],
     'actual_length': ['Actual detection length', 'hitActualDetectionLength'],
     'asset_length': ['Asset: Length', 'assetLength'],
@@ -122,6 +123,7 @@ def parse_file(file_bytes, filename):
     slug_col = col.get('slug') or col.get('story_id')
     df['_slug'] = df[slug_col].fillna('Unknown').astype(str).str.strip()
     df['_story_id'] = df[col['story_id']].fillna('').astype(str).str.strip() if 'story_id' in col else ''
+    df['_headline'] = df[col['headline']].fillna('').astype(str).str.strip() if 'headline' in col else ''
     df['_channel'] = df[col['channel']].fillna('Unknown').astype(str).str.strip()
     df['_market'] = df[col['market']].fillna('Unknown').astype(str).str.strip() if 'market' in col else 'Unknown'
     df['_region_raw'] = df[col['region']].fillna('').astype(str).str.strip() if 'region' in col else ''
@@ -156,6 +158,8 @@ def parse_file(file_bytes, filename):
 
     for slug, grp in grouped:
         story_id = grp['_story_id'].iloc[0] if '_story_id' in grp.columns else ''
+        headline_series = grp['_headline'][grp['_headline'] != ''] if '_headline' in grp.columns else pd.Series([], dtype=str)
+        headline = headline_series.iloc[0] if len(headline_series) else ''
         airings = len(grp)
         channels = grp['_channel'].nunique()
         countries = grp['_market'].nunique()
@@ -190,6 +194,7 @@ def parse_file(file_bytes, filename):
 
         stories.append({
             'slug': slug,
+            'headline': headline,
             'story_id': story_id,
             'airings': int(airings),
             'channels': int(channels),

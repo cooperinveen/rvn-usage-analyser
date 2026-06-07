@@ -199,6 +199,7 @@ function renderInsights() {
             <span class="insight-rank">${i + 1}</span>
             <div style="flex:1; min-width:0">
                 <div class="insight-name">${slugDisplay(s.slug)}</div>
+                ${s.headline ? `<div class="insight-headline">${escHtml(s.headline)}</div>` : ''}
                 <div class="insight-bar-wrap"><div class="insight-bar" style="width:${Math.round(s.airings/maxAirings*100)}%"></div></div>
             </div>
             <span class="insight-count">${s.airings}</span>
@@ -274,7 +275,8 @@ function applyFilters() {
         const q = state.searchQuery;
         filtered = filtered.filter(s =>
             s.slug.toLowerCase().includes(q) ||
-            (s.story_id && s.story_id.toLowerCase().includes(q))
+            (s.story_id && s.story_id.toLowerCase().includes(q)) ||
+            (s.headline && s.headline.toLowerCase().includes(q))
         );
     }
 
@@ -323,13 +325,12 @@ function renderTable() {
     }
 
     storiesTbody.innerHTML = page.map(s => {
-        const [topic, subtopic] = s.slug.split('/');
         const barWidth = Math.max(2, Math.round(s.airings / maxAirings * 60));
         return `
         <tr>
             <td class="slug-cell">
-                <div class="slug-topic">${escHtml(topic)}</div>
-                <div class="slug-main">${escHtml(subtopic || topic)}</div>
+                <div class="slug-main">${escHtml(s.slug)}</div>
+                ${s.headline ? `<div class="slug-headline">${escHtml(s.headline)}</div>` : ''}
             </td>
             <td class="col-num">
                 <div class="airing-bar-wrap">
@@ -565,8 +566,6 @@ function escHtml(str) {
 }
 
 function slugDisplay(slug) {
-    const [topic, sub] = slug.split('/');
-    if (sub) return `<span style="color:var(--tr-text-light);font-size:11px">${escHtml(topic)}/</span>${escHtml(sub)}`;
-    return escHtml(topic);
+    return escHtml(slug);
 }
 
