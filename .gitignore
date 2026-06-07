@@ -6,3 +6,6 @@ venv/
 teletrax-documentation/
 fonts/
 images/
+.vercel
+.env*
+node_modules/

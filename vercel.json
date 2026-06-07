@@ -2,12 +2,20 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/blob-upload.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/index.py",
       "use": "@vercel/python",
       "config": { "maxDuration": 60 }
     }
   ],
   "routes": [
+    {
+      "src": "/api/blob-upload",
+      "dest": "api/blob-upload.js"
+    },
     {
       "src": "/(.*)",
       "dest": "api/index.py"
