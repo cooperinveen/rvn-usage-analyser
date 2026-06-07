@@ -3,9 +3,10 @@ __pycache__/
 *.pyc
 venv/
 .env
-teletrax-documentation/
+.env*
 fonts/
 images/
 .vercel
-.env*
 node_modules/
+docs/
+PROGRESS.md
