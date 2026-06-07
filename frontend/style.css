@@ -431,35 +431,6 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
 .modal-table tbody tr:hover { background: #fafbfc; }
 .modal-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
-/* Detections list */
-.detections-toggle {
-    background: none;
-    border: none;
-    color: var(--tr-dark-sky);
-    font-family: 'Clario', sans-serif;
-    font-size: 13px;
-    cursor: pointer;
-    padding: 6px 0;
-    display: block;
-    width: 100%;
-    text-align: left;
-}
-.detections-toggle:hover { color: var(--tr-orange); }
-.detections-list { margin-top: 8px; }
-.detection-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 130px 80px;
-    gap: 8px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    align-items: center;
-}
-.detection-row:nth-child(odd) { background: var(--tr-bg); }
-.detection-channel { font-weight: 500; color: var(--tr-text); }
-.detection-market { color: var(--tr-text-light); }
-.detection-time { color: var(--tr-text-light); font-size: 11px; }
-.detection-duration { color: var(--tr-orange); font-weight: 500; text-align: right; }
 
 /* ── Loading Overlay ── */
 .loading-overlay {

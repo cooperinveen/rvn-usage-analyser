@@ -21,8 +21,6 @@ const uploadScreen = $('upload-screen');
 const dashboardScreen = $('dashboard-screen');
 const uploadZone = $('upload-zone');
 const fileInput = $('file-input');
-const uploadProgress = $('upload-progress');
-const progressBar = $('progress-bar');
 const progressText = $('progress-text');
 const uploadError = $('upload-error');
 const loadingOverlay = $('loading-overlay');
@@ -542,15 +540,3 @@ function slugDisplay(slug) {
     return escHtml(topic);
 }
 
-function secsToHms(secs) {
-    secs = Math.round(secs || 0);
-    if (secs < 60) return `${secs}s`;
-    if (secs < 3600) { const m = Math.floor(secs/60), s = secs%60; return `${m}m ${s}s`; }
-    const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60);
-    return `${h}h ${m}m`;
-}
-
-// ── Init ─────────────────────────────────────────────────────────────────────
-(async function init() {
-    // Nothing to restore — this is a stateless, upload-first tool
-})();

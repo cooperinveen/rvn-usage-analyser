@@ -1,7 +1,5 @@
 import os
-import json
 import urllib.request
-import urllib.parse
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, Response
 from backend.parser import parse_file, generate_export
@@ -108,18 +106,6 @@ def process_blob():
     })
 
 
-@app.route('/api/story/<path:slug>', methods=['GET'])
-def get_story(slug):
-    if not _current_data:
-        return jsonify({'error': 'No data loaded. Please upload a file first.'}), 404
-
-    for story in _current_data.get('stories', []):
-        if story['slug'] == slug:
-            return jsonify(story)
-
-    return jsonify({'error': 'Story not found'}), 404
-
-
 @app.route('/api/export', methods=['GET'])
 def export_summary():
     if not _current_data:
@@ -131,17 +117,6 @@ def export_summary():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={'Content-Disposition': 'attachment; filename="reuters-usage-summary.xlsx"'}
     )
-
-
-@app.route('/api/status', methods=['GET'])
-def status():
-    if _current_data:
-        return jsonify({
-            'loaded': True,
-            'summary': _current_data.get('summary', {}),
-            'date_range': _current_data.get('date_range', {}),
-        })
-    return jsonify({'loaded': False})
 
 
 if __name__ == '__main__':
