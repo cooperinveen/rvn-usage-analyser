@@ -1,8 +1,8 @@
-# RVN Usage Analyser
+# RVN Usage Tracker
 
 A plain-English dashboard for Reuters broadcast monitoring data. Upload a Teletrax export and instantly see which stories aired, where, how many times, and on which channels — without needing to know how to use Teletrax.
 
-**Live:** https://rvn-usage-analyser.vercel.app
+**Live:** https://rvn-usage-tracker.vercel.app
 
 ---
 
@@ -26,7 +26,7 @@ Upload a `.csv` or `.xlsx` export → get:
 2. Go to **Detections → New Report** (or open a saved report)
 3. Set your date range and any filters
 4. Click **Export** → choose **CSV** or **Excel (.xlsx)**
-5. Upload the downloaded file at https://rvn-usage-analyser.vercel.app
+5. Upload the downloaded file at https://rvn-usage-tracker.vercel.app
 
 Files up to ~50 MB are supported. For best performance, keep exports to 24–72 hours.
 
@@ -38,7 +38,7 @@ Files up to ~50 MB are supported. For best performance, keep exports to 24–72 
 
 ```bash
 # Clone and set up Python environment
-cd rvn-usage-analyser
+cd rvn-usage-tracker
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt

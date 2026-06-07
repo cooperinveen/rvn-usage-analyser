@@ -489,9 +489,29 @@ function closeModal() {
 }
 
 // ── Export ───────────────────────────────────────────────────────────────────
-$('btn-export').addEventListener('click', () => {
-    window.location.href = '/api/export';
-    showToast('Downloading summary…');
+$('btn-export').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stories: state.allStories }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Export failed');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'reuters-usage-summary.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Downloading summary…');
+    } catch (err) {
+        showToast('Export failed — please try again');
+    }
 });
 
 // ── Loading helpers ──────────────────────────────────────────────────────────

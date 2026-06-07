@@ -8,9 +8,6 @@ FRONTEND_DIR = str(Path(__file__).parent.parent / 'frontend')
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 
-# In-memory store for the current session's parsed data (one dataset at a time)
-_current_data = {}
-
 
 @app.route('/')
 def index():
@@ -41,9 +38,6 @@ def upload():
     except Exception as e:
         return jsonify({'error': f'Could not parse file: {str(e)}'}), 500
 
-    _current_data.clear()
-    _current_data.update(data)
-
     return jsonify({
         'summary': data['summary'],
         'stories': data['stories'],
@@ -56,12 +50,34 @@ def upload():
 @app.route('/api/process', methods=['POST'])
 def process_blob():
     """Process a file already uploaded to Vercel Blob. Receives the blob URL, fetches, parses, deletes."""
-    body = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({'error': 'Invalid request body'}), 400
+
     blob_url = body.get('url', '').strip()
     filename = body.get('filename', 'upload.xlsx').strip()
 
     if not blob_url:
         return jsonify({'error': 'No blob URL provided'}), 400
+
+    # Only allow HTTPS URLs to the Vercel Blob public store.
+    # Blocks: file://, http://, SSRF to internal hosts, encoded-slash bypass (%2F in host),
+    # user-info bypass (user@host), IP literals, and subdomain-confusion attacks.
+    ALLOWED_BLOB_SUFFIX = '.public.blob.vercel-storage.com'
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(blob_url)
+        hostname = parsed.hostname or ''
+        if (
+            parsed.scheme != 'https'
+            or not hostname
+            or '%' in hostname                               # reject any percent-encoding in host
+            or '@' in blob_url.split('//')[1].split('/')[0]  # reject user-info
+            or not hostname.endswith(ALLOWED_BLOB_SUFFIX)
+        ):
+            return jsonify({'error': 'Invalid file URL'}), 400
+    except Exception:
+        return jsonify({'error': 'Invalid file URL'}), 400
 
     # Fetch the file from Vercel Blob (public store — no auth header needed)
     try:
@@ -94,9 +110,6 @@ def process_blob():
             except Exception:
                 pass  # Cleanup failure is non-fatal
 
-    _current_data.clear()
-    _current_data.update(data)
-
     return jsonify({
         'summary': data['summary'],
         'stories': data['stories'],
@@ -106,12 +119,22 @@ def process_blob():
     })
 
 
-@app.route('/api/export', methods=['GET'])
+@app.route('/api/export', methods=['POST'])
 def export_summary():
-    if not _current_data:
-        return jsonify({'error': 'No data loaded'}), 404
+    """Generate XLSX from stories supplied by the client — no server-side state."""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({'error': 'Invalid request body'}), 400
 
-    xlsx_bytes = generate_export(_current_data['stories'])
+    stories = body.get('stories')
+    if not isinstance(stories, list) or len(stories) == 0:
+        return jsonify({'error': 'No stories provided'}), 400
+
+    try:
+        xlsx_bytes = generate_export(stories)
+    except Exception as e:
+        return jsonify({'error': f'Could not generate export: {str(e)}'}), 500
+
     return Response(
         xlsx_bytes,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

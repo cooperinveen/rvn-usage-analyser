@@ -17,6 +17,13 @@ export default async function handler(req, res) {
         req.on('error', reject);
     });
 
+    // Validate pathname before issuing a token — reject any path separators or non-CSV/XLSX names
+    const pathname = body?.payload?.pathname || '';
+    if (/[/\\]/.test(pathname) || !/^[\w\-]+\.(csv|xlsx)$/i.test(pathname)) {
+        res.status(400).json({ error: 'Invalid file name. Only .csv and .xlsx files are accepted.' });
+        return;
+    }
+
     try {
         const jsonResponse = await handleUpload({
             body,
@@ -25,11 +32,10 @@ export default async function handler(req, res) {
                 allowedContentTypes: [
                     'text/csv',
                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    'application/octet-stream',
                 ],
+                maximumSizeInBytes: 20 * 1024 * 1024, // 20 MB — well above any real Teletrax export
                 addRandomSuffix: false,
                 allowOverwrite: true,
-                // Public store required for client-side PUT uploads
                 access: 'public',
             }),
             onUploadCompleted: async () => {},
