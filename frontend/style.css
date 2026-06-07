@@ -253,7 +253,7 @@ body {
 
 /* ── Table ── */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--shadow); background: #fff; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 thead { background: var(--tr-racing-green); color: #fff; position: sticky; top: 0; z-index: 10; }
 th {
     padding: 12px 14px;
@@ -277,12 +277,15 @@ td {
 tbody tr:hover { background: #fafbfc; }
 tbody tr:last-child td { border-bottom: none; }
 
-.col-num { text-align: right; width: 80px; }
-.col-time { width: 90px; }
-.col-date { width: 110px; font-size: 12px; color: var(--tr-text-light); }
+.col-num { text-align: right; width: 90px; }
+.col-time { width: 100px; }
+.col-date { width: 130px; font-size: 12px; color: var(--tr-text-light); }
 .col-action { width: 60px; text-align: right; }
 td.col-num { text-align: right; font-variant-numeric: tabular-nums; }
 td.col-date { font-size: 12px; color: var(--tr-text-light); }
+/* Story column fills remaining space; fixed width anchor prevents layout collapse */
+.col-story { width: auto; min-width: 260px; }
+.slug-cell { overflow: hidden; }
 
 .slug-cell { max-width: 340px; }
 .slug-main { font-size: 11px; font-weight: 600; color: var(--tr-orange); text-transform: uppercase; letter-spacing: 0.3px; word-break: break-word; }
