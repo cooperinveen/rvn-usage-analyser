@@ -1,12 +1,26 @@
 import { handleUpload } from '@vercel/blob/client';
 
-export default async function handler(request) {
-    const body = await request.json();
+export default async function handler(req, res) {
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    // Read body from IncomingMessage stream
+    const body = await new Promise((resolve, reject) => {
+        let data = '';
+        req.on('data', chunk => { data += chunk; });
+        req.on('end', () => {
+            try { resolve(JSON.parse(data)); }
+            catch (e) { reject(new Error('Invalid JSON')); }
+        });
+        req.on('error', reject);
+    });
 
     try {
         const jsonResponse = await handleUpload({
             body,
-            request,
+            request: req,
             onBeforeGenerateToken: async () => ({
                 allowedContentTypes: [
                     'text/csv',
@@ -15,13 +29,11 @@ export default async function handler(request) {
                 ],
                 addRandomSuffix: true,
             }),
-            onUploadCompleted: async () => {
-                // Nothing to do — Flask processes and deletes the blob immediately
-            },
+            onUploadCompleted: async () => {},
         });
 
-        return Response.json(jsonResponse);
+        res.status(200).json(jsonResponse);
     } catch (error) {
-        return Response.json({ error: error.message }, { status: 400 });
+        res.status(400).json({ error: error.message });
     }
 }
