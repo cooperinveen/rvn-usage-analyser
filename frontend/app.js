@@ -97,6 +97,12 @@ async function uploadFile(file) {
 }
 
 async function uploadToBlob(file) {
+    // Sanitize filename — Vercel Blob rejects spaces, em dashes, and non-ASCII chars
+    const ext = file.name.split('.').pop().toLowerCase();
+    const basename = file.name.replace(/\.[^.]+$/, '');
+    const safeBasename = basename.replace(/[^\w\-]/g, '_').replace(/_+/g, '_');
+    const pathname = safeBasename + '.' + ext;
+
     // Step 1: get a client token from our server-side handler
     const callbackUrl = window.location.origin + '/api/blob-upload';
     const tokenRes = await fetch('/api/blob-upload', {
@@ -104,7 +110,7 @@ async function uploadToBlob(file) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             type: 'blob.generate-client-token',
-            payload: { pathname: file.name, callbackUrl, multipart: false },
+            payload: { pathname, callbackUrl, multipart: false },
         }),
     });
     if (!tokenRes.ok) {
@@ -117,13 +123,12 @@ async function uploadToBlob(file) {
 
     // Step 2: PUT the file directly to Vercel Blob (no 4.5 MB limit)
     // access=public is required for browser-side PUT uploads (CORS)
-    const uploadRes = await fetch(`https://blob.vercel-storage.com/${encodeURIComponent(file.name)}`, {
+    const uploadRes = await fetch(`https://blob.vercel-storage.com/${encodeURIComponent(pathname)}`, {
         method: 'PUT',
         headers: {
             'authorization': `Bearer ${clientToken}`,
             'x-api-version': '9',
             'x-content-length': String(file.size),
-            'x-access': 'public',
         },
         body: file,
     });
