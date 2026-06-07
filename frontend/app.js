@@ -123,7 +123,8 @@ async function uploadToBlob(file) {
 
     // Step 2: PUT the file directly to Vercel Blob (no 4.5 MB limit)
     // access=public is required for browser-side PUT uploads (CORS)
-    const uploadRes = await fetch(`https://blob.vercel-storage.com/${encodeURIComponent(pathname)}`, {
+    // Vercel Blob API expects pathname as a query param: /?pathname=<name>
+    const uploadRes = await fetch(`https://blob.vercel-storage.com/?pathname=${encodeURIComponent(pathname)}`, {
         method: 'PUT',
         headers: {
             'authorization': `Bearer ${clientToken}`,

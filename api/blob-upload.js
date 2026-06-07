@@ -27,7 +27,7 @@ export default async function handler(req, res) {
                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     'application/octet-stream',
                 ],
-                addRandomSuffix: true,
+                addRandomSuffix: false,
                 // Public store required for client-side PUT uploads
                 access: 'public',
             }),
