@@ -65,10 +65,9 @@ def process_blob():
     if not blob_url:
         return jsonify({'error': 'No blob URL provided'}), 400
 
-    # Fetch the file from Vercel Blob using the read-write token
-    blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN', '')
+    # Fetch the file from Vercel Blob (public store — no auth header needed)
     try:
-        req = urllib.request.Request(blob_url, headers={'Authorization': f'Bearer {blob_token}'} if blob_token else {})
+        req = urllib.request.Request(blob_url)
         with urllib.request.urlopen(req, timeout=120) as resp:
             file_bytes = resp.read()
     except Exception as e:
@@ -85,6 +84,7 @@ def process_blob():
         return jsonify({'error': f'Could not parse file: {str(e)}'}), 500
     finally:
         # Delete the blob — we don't need it anymore
+        blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN', '')
         if blob_url and blob_token:
             try:
                 del_req = urllib.request.Request(

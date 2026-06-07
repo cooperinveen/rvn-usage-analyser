@@ -28,6 +28,8 @@ export default async function handler(req, res) {
                     'application/octet-stream',
                 ],
                 addRandomSuffix: true,
+                // Public store required for client-side PUT uploads
+                access: 'public',
             }),
             onUploadCompleted: async () => {},
         });

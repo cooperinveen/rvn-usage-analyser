@@ -60,29 +60,30 @@ function handleFile(file) {
         showUploadError('Please upload a .csv or .xlsx file exported from Teletrax.');
         return;
     }
-    const MAX_MB = 4;
-    if (file.size > MAX_MB * 1024 * 1024) {
-        const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-        showUploadError(`This file is ${sizeMB} MB — too large to upload (limit: ${MAX_MB} MB). Try a shorter date range in Teletrax, or export as CSV which compresses better than XLSX.`);
-        return;
-    }
     uploadFile(file);
 }
 
 async function uploadFile(file) {
     hideUploadError();
-    showLoading('Analysing your data…', 'This may take a moment for large files');
-
-    const formData = new FormData();
-    formData.append('file', file);
+    showLoading('Uploading…', 'Sending file to server');
 
     try {
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        // Step 1: upload directly to Vercel Blob (no 4.5 MB limit)
+        showLoading('Uploading…', 'Transferring file — large files may take a moment');
+        const blobResult = await uploadToBlob(file);
+
+        // Step 2: ask Flask to fetch from blob, parse, and return aggregated data
+        showLoading('Analysing your data…', 'Processing — this may take a moment for large files');
+        const res = await fetch('/api/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: blobResult.url, filename: file.name }),
+        });
         const data = await res.json();
 
         if (!res.ok) {
             hideLoading();
-            showUploadError(data.error || 'Upload failed. Please try again.');
+            showUploadError(data.error || 'Processing failed. Please try again.');
             return;
         }
 
@@ -91,8 +92,46 @@ async function uploadFile(file) {
         showToast(`Loaded ${data.summary.total_stories.toLocaleString()} stories from ${data.summary.total_airings.toLocaleString()} airings`);
     } catch (err) {
         hideLoading();
-        showUploadError('Could not connect to the server. Please try again.');
+        showUploadError(err.message || 'Could not connect to the server. Please try again.');
     }
+}
+
+async function uploadToBlob(file) {
+    // Step 1: get a client token from our server-side handler
+    const callbackUrl = window.location.origin + '/api/blob-upload';
+    const tokenRes = await fetch('/api/blob-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            type: 'blob.generate-client-token',
+            payload: { pathname: file.name, callbackUrl, multipart: false },
+        }),
+    });
+    if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Could not get upload token');
+    }
+    const tokenData = await tokenRes.json();
+    const clientToken = tokenData.clientToken;
+    if (!clientToken) throw new Error('Invalid upload token response');
+
+    // Step 2: PUT the file directly to Vercel Blob (no 4.5 MB limit)
+    // access=public is required for browser-side PUT uploads (CORS)
+    const uploadRes = await fetch(`https://blob.vercel-storage.com/${encodeURIComponent(file.name)}`, {
+        method: 'PUT',
+        headers: {
+            'authorization': `Bearer ${clientToken}`,
+            'x-api-version': '9',
+            'x-content-length': String(file.size),
+            'x-access': 'public',
+        },
+        body: file,
+    });
+    if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => '');
+        throw new Error(`File upload to storage failed (${uploadRes.status}). ${errText}`);
+    }
+    return await uploadRes.json();
 }
 
 function loadData(data) {
