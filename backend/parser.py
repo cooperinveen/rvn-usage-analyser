@@ -1,0 +1,370 @@
+import pandas as pd
+import io
+from datetime import timedelta
+from collections import defaultdict
+
+# Column name aliases — maps possible Teletrax/Reuters labels to our internal keys
+COL_ALIASES = {
+    'channel': ['Channel: Name', 'channel_name', 'Channel Name'],
+    'market': ['Market: Name', 'market_name', 'Market Name'],
+    'region': ['Region: Name', 'Region Name', 'channelRegionName'],
+    'utc_start': ['UTC detection start', 'hitUtcDetectionStart', 'detection_start_date_time_utc'],
+    'local_start': ['Local detection start', 'hitLocalDetectionStart', 'detection_start_date_time_local'],
+    'story_id': ['Story ID', 'itemid', 'Item ID'],
+    'slug': ['Slug line', 'slug', 'Slug'],
+    'detection_duration': ['Detection duration', 'hitDetectionDuration', 'detection_length'],
+    'actual_length': ['Actual detection length', 'hitActualDetectionLength'],
+    'asset_length': ['Asset: Length', 'assetLength'],
+    'activation_date': ['Asset: Activation date start (UTC)', 'assetActivationDateStartUtc'],
+}
+
+
+def _resolve_columns(df):
+    """Map dataframe columns to internal keys using aliases."""
+    col_map = {}
+    df_cols_lower = {c.lower().strip(): c for c in df.columns}
+    for key, aliases in COL_ALIASES.items():
+        for alias in aliases:
+            if alias in df.columns:
+                col_map[key] = alias
+                break
+            if alias.lower().strip() in df_cols_lower:
+                col_map[key] = df_cols_lower[alias.lower().strip()]
+                break
+    return col_map
+
+
+def _td_to_seconds(val):
+    """Convert a timedelta, time, or string hh:mm:ss to total seconds."""
+    if pd.isnull(val):
+        return 0
+    if isinstance(val, timedelta):
+        return val.total_seconds()
+    if hasattr(val, 'hour'):  # datetime.time
+        return val.hour * 3600 + val.minute * 60 + val.second
+    if isinstance(val, str):
+        try:
+            parts = val.split(':')
+            if len(parts) == 3:
+                return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        except Exception:
+            pass
+    return 0
+
+
+def _seconds_to_hms(seconds):
+    """Convert seconds to human-readable string like '2m 34s' or '1h 4m'."""
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        m, s = divmod(seconds, 60)
+        return f"{m}m {s}s"
+    else:
+        h, rem = divmod(seconds, 3600)
+        m = rem // 60
+        return f"{h}h {m}m"
+
+
+def _map_region(region_val):
+    """Normalise region names into broad editorial groupings."""
+    if not region_val or pd.isnull(region_val):
+        return 'Other'
+    r = str(region_val).lower()
+    if any(x in r for x in ['united states', 'usa', 'canada', 'mexico', 'latin', 'brazil', 'argentina', 'colombia']):
+        return 'Americas'
+    if any(x in r for x in ['china', 'japan', 'korea', 'india', 'australia', 'asia', 'singapore', 'thailand',
+                              'indonesia', 'philippines', 'vietnam', 'malaysia', 'hong kong', 'taiwan',
+                              'new zealand', 'pakistan', 'bangladesh']):
+        return 'Asia Pacific'
+    if any(x in r for x in ['arab', 'saudi', 'egypt', 'iran', 'iraq', 'israel', 'jordan', 'kuwait',
+                              'qatar', 'uae', 'united arab', 'bahrain', 'oman', 'yemen', 'syria',
+                              'lebanon', 'middle east', 'turkey']):
+        return 'Middle East'
+    if any(x in r for x in ['africa', 'nigeria', 'kenya', 'ghana', 'ethiopia', 'south africa',
+                              'tanzania', 'uganda', 'senegal', 'morocco', 'algeria', 'tunisia']):
+        return 'Africa'
+    if any(x in r for x in ['russia', 'ukraine', 'poland', 'germany', 'france', 'italy', 'spain',
+                              'uk', 'united kingdom', 'britain', 'netherlands', 'belgium', 'sweden',
+                              'norway', 'denmark', 'finland', 'portugal', 'austria', 'switzerland',
+                              'czech', 'hungary', 'romania', 'greece', 'europe', 'international']):
+        return 'Europe'
+    return 'Other'
+
+
+def parse_file(file_bytes, filename):
+    """
+    Parse a Teletrax CSV or XLSX export and return aggregated data.
+    Returns dict with 'summary', 'stories', 'top_channels', 'top_markets', 'date_range'.
+    """
+    # Load into dataframe
+    if filename.lower().endswith('.xlsx'):
+        df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0)
+    else:
+        # Try common separators
+        for sep in [',', '|', '\t']:
+            try:
+                df = pd.read_csv(io.BytesIO(file_bytes), sep=sep, skiprows=_detect_header_rows(file_bytes))
+                if len(df.columns) > 3:
+                    break
+            except Exception:
+                continue
+
+    col = _resolve_columns(df)
+
+    # Require at minimum a slug/story column and a channel column
+    if 'slug' not in col and 'story_id' not in col:
+        raise ValueError("Could not find story/slug columns in this file. Please check it is a Teletrax export.")
+    if 'channel' not in col:
+        raise ValueError("Could not find channel column in this file.")
+
+    # Normalise key columns
+    slug_col = col.get('slug') or col.get('story_id')
+    df['_slug'] = df[slug_col].fillna('Unknown').astype(str).str.strip()
+    df['_story_id'] = df[col['story_id']].fillna('').astype(str).str.strip() if 'story_id' in col else ''
+    df['_channel'] = df[col['channel']].fillna('Unknown').astype(str).str.strip()
+    df['_market'] = df[col['market']].fillna('Unknown').astype(str).str.strip() if 'market' in col else 'Unknown'
+    df['_region_raw'] = df[col['region']].fillna('').astype(str).str.strip() if 'region' in col else ''
+    df['_region'] = df['_region_raw'].apply(_map_region)
+
+    # Parse time columns
+    df['_actual_secs'] = df[col['actual_length']].apply(_td_to_seconds) if 'actual_length' in col else 0
+    df['_detect_secs'] = df[col['detection_duration']].apply(_td_to_seconds) if 'detection_duration' in col else 0
+    df['_asset_secs'] = df[col['asset_length']].apply(_td_to_seconds) if 'asset_length' in col else 0
+
+    # Parse UTC datetime
+    if 'utc_start' in col:
+        df['_utc_start'] = pd.to_datetime(df[col['utc_start']], errors='coerce', utc=True)
+    else:
+        df['_utc_start'] = pd.NaT
+
+    if 'local_start' in col:
+        df['_local_start'] = pd.to_datetime(df[col['local_start']], errors='coerce')
+    else:
+        df['_local_start'] = pd.NaT
+
+    # Date range of the whole dataset
+    valid_dates = df['_utc_start'].dropna()
+    date_range = {
+        'from': valid_dates.min().strftime('%d %b %Y %H:%M UTC') if len(valid_dates) else 'Unknown',
+        'to': valid_dates.max().strftime('%d %b %Y %H:%M UTC') if len(valid_dates) else 'Unknown',
+    }
+
+    # --- Aggregate per story ---
+    stories = []
+    grouped = df.groupby('_slug', sort=False)
+
+    for slug, grp in grouped:
+        story_id = grp['_story_id'].iloc[0] if '_story_id' in grp.columns else ''
+        airings = len(grp)
+        channels = grp['_channel'].nunique()
+        countries = grp['_market'].nunique()
+        total_air_secs = grp['_actual_secs'].sum()
+        avg_clip_secs = grp['_actual_secs'].mean()
+        asset_secs = grp['_asset_secs'].iloc[0] if grp['_asset_secs'].iloc[0] > 0 else 0
+
+        first_seen = grp['_utc_start'].min()
+        last_seen = grp['_utc_start'].max()
+        days_in_rotation = max(1, (last_seen - first_seen).days + 1) if pd.notna(first_seen) and pd.notna(last_seen) else 1
+
+        # Top 5 channels for this story
+        ch_counts = grp.groupby('_channel').agg(
+            airings=('_actual_secs', 'count'),
+            air_secs=('_actual_secs', 'sum'),
+            country=('_market', 'first')
+        ).reset_index().sort_values('airings', ascending=False).head(5)
+        top_channels = ch_counts.to_dict('records')
+        for c in top_channels:
+            c['channel'] = c.pop('_channel')
+            c['air_time'] = _seconds_to_hms(c['air_secs'])
+            del c['air_secs']
+
+        # Top 5 markets for this story
+        mkt_counts = grp.groupby('_market')['_actual_secs'].count().reset_index()
+        mkt_counts.columns = ['market', 'airings']
+        mkt_counts = mkt_counts.sort_values('airings', ascending=False).head(5)
+        top_markets = mkt_counts.to_dict('records')
+
+        # Individual detections (all rows), sorted by UTC start
+        detections = []
+        det_grp = grp.sort_values('_utc_start')
+        for _, row in det_grp.iterrows():
+            utc = row['_utc_start']
+            local = row['_local_start']
+            detections.append({
+                'channel': row['_channel'],
+                'market': row['_market'],
+                'utc': utc.strftime('%d %b %Y %H:%M UTC') if pd.notna(utc) else '',
+                'local': local.strftime('%d %b %Y %H:%M') if pd.notna(local) else '',
+                'air_time': _seconds_to_hms(row['_actual_secs']),
+                'air_secs': int(row['_actual_secs']),
+            })
+
+        # Regions represented
+        regions = grp['_region'].value_counts().to_dict()
+
+        stories.append({
+            'slug': slug,
+            'story_id': story_id,
+            'airings': int(airings),
+            'channels': int(channels),
+            'countries': int(countries),
+            'total_air_time': _seconds_to_hms(total_air_secs),
+            'total_air_secs': int(total_air_secs),
+            'avg_clip': _seconds_to_hms(avg_clip_secs),
+            'avg_clip_secs': int(avg_clip_secs),
+            'asset_length': _seconds_to_hms(asset_secs),
+            'asset_secs': int(asset_secs),
+            'first_seen': first_seen.strftime('%d %b %Y %H:%M') if pd.notna(first_seen) else '',
+            'last_seen': last_seen.strftime('%d %b %Y %H:%M') if pd.notna(last_seen) else '',
+            'days_in_rotation': int(days_in_rotation),
+            'top_channels': top_channels,
+            'top_markets': top_markets,
+            'detections': detections,
+            'regions': regions,
+        })
+
+    # Sort by airings descending
+    stories.sort(key=lambda x: x['airings'], reverse=True)
+
+    # --- Global summary ---
+    total_airings = len(df)
+    total_stories = len(stories)
+    total_channels = df['_channel'].nunique()
+    total_countries = df['_market'].nunique()
+    total_air_secs = df['_actual_secs'].sum()
+
+    # Top 10 channels globally
+    top_channels_global = (
+        df.groupby('_channel')['_actual_secs']
+        .agg(airings='count', air_secs='sum')
+        .reset_index()
+        .sort_values('airings', ascending=False)
+        .head(10)
+    )
+    top_channels_global['air_time'] = top_channels_global['air_secs'].apply(_seconds_to_hms)
+    # Add country for each channel
+    ch_country = df.groupby('_channel')['_market'].first().to_dict()
+    top_channels_global['country'] = top_channels_global['_channel'].map(ch_country)
+    top_channels_list = top_channels_global[['_channel', 'airings', 'air_time', 'country']].rename(
+        columns={'_channel': 'channel'}
+    ).to_dict('records')
+
+    # Top 10 markets globally
+    top_markets_global = (
+        df.groupby('_market')['_actual_secs']
+        .agg(airings='count', air_secs='sum')
+        .reset_index()
+        .sort_values('airings', ascending=False)
+        .head(10)
+    )
+    top_markets_global['air_time'] = top_markets_global['air_secs'].apply(_seconds_to_hms)
+    top_markets_list = top_markets_global[['_market', 'airings', 'air_time']].rename(
+        columns={'_market': 'market'}
+    ).to_dict('records')
+
+    # Zero-airing stories (if any — only possible if "include all assets" was ticked)
+    zero_airing = sum(1 for s in stories if s['airings'] == 0)
+
+    summary = {
+        'total_airings': int(total_airings),
+        'total_stories': int(total_stories),
+        'total_channels': int(total_channels),
+        'total_countries': int(total_countries),
+        'total_air_time': _seconds_to_hms(total_air_secs),
+        'zero_airing_stories': int(zero_airing),
+        'date_range': date_range,
+    }
+
+    return {
+        'summary': summary,
+        'stories': stories,
+        'top_channels': top_channels_list,
+        'top_markets': top_markets_list,
+        'date_range': date_range,
+    }
+
+
+def _detect_header_rows(file_bytes):
+    """Detect if CSV has a metadata header block (Teletrax adds 3 lines before column headers)."""
+    try:
+        text = file_bytes.decode('utf-8', errors='ignore')
+        lines = text.split('\n')
+        for i, line in enumerate(lines[:5]):
+            if 'Report date' in line or 'Starting' in line or 'Ending' in line:
+                continue
+            # First line that looks like column headers
+            if ',' in line or '|' in line or '\t' in line:
+                return i
+    except Exception:
+        pass
+    return 0
+
+
+def generate_export(stories):
+    """Generate a clean summary XLSX for download."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Usage Summary"
+
+    headers = [
+        'Story Slug', 'Story ID', 'Airings', 'Channels', 'Countries',
+        'Total Air Time', 'Avg Clip Used', 'Original Length',
+        'Days in Rotation', 'First Aired', 'Last Aired',
+        'Top Channel', 'Top Market'
+    ]
+
+    # Header row styling
+    header_fill = PatternFill(start_color='123015', end_color='123015', fill_type='solid')
+    header_font = Font(color='FFFFFF', bold=True, name='Calibri', size=11)
+
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+
+    ws.row_dimensions[1].height = 20
+
+    # Data rows
+    for row_idx, story in enumerate(stories, 2):
+        top_ch = story['top_channels'][0].get('channel', '') if story['top_channels'] else ''
+        top_mkt = story['top_markets'][0]['market'] if story['top_markets'] else ''
+
+        row_data = [
+            story['slug'],
+            story['story_id'],
+            story['airings'],
+            story['channels'],
+            story['countries'],
+            story['total_air_time'],
+            story['avg_clip'],
+            story['asset_length'],
+            story['days_in_rotation'],
+            story['first_seen'],
+            story['last_seen'],
+            top_ch,
+            top_mkt,
+        ]
+        for col_idx, value in enumerate(row_data, 1):
+            ws.cell(row=row_idx, column=col_idx, value=value)
+
+        # Alternate row shading
+        if row_idx % 2 == 0:
+            light_fill = PatternFill(start_color='F8F9FA', end_color='F8F9FA', fill_type='solid')
+            for col_idx in range(1, len(headers) + 1):
+                ws.cell(row=row_idx, column=col_idx).fill = light_fill
+
+    # Column widths
+    col_widths = [40, 20, 10, 10, 10, 15, 15, 15, 12, 18, 18, 25, 20]
+    for col_idx, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out.getvalue()
