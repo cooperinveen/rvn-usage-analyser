@@ -1,9 +1,12 @@
 import os
 import json
+from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, Response
-from parser import parse_file, generate_export
+from backend.parser import parse_file, generate_export
 
-app = Flask(__name__, static_folder='../frontend', static_url_path='')
+FRONTEND_DIR = str(Path(__file__).parent.parent / 'frontend')
+
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 
 # In-memory store for the current session's parsed data (one dataset at a time)
 _current_data = {}
@@ -11,7 +14,7 @@ _current_data = {}
 
 @app.route('/')
 def index():
-    return send_from_directory('../frontend', 'index.html')
+    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 
 @app.route('/api/upload', methods=['POST'])
