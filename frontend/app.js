@@ -60,6 +60,12 @@ function handleFile(file) {
         showUploadError('Please upload a .csv or .xlsx file exported from Teletrax.');
         return;
     }
+    const MAX_MB = 4;
+    if (file.size > MAX_MB * 1024 * 1024) {
+        const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        showUploadError(`This file is ${sizeMB} MB — too large to upload (limit: ${MAX_MB} MB). Try a shorter date range in Teletrax, or export as CSV which compresses better than XLSX.`);
+        return;
+    }
     uploadFile(file);
 }
 
