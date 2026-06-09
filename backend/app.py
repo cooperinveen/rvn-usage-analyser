@@ -30,19 +30,12 @@ def login_required(f):
         if not session.get('user'):
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Not authenticated'}), 401
-            return redirect('/login')
+            return redirect('/auth/login')
         return f(*args, **kwargs)
     return decorated
 
 
 # ── Static / frontend ─────────────────────────────────────────────────────────
-
-@app.route('/login')
-def login_page():
-    if session.get('user'):
-        return redirect('/')
-    return send_from_directory(FRONTEND_DIR, 'login.html')
-
 
 @app.route('/')
 @login_required
@@ -54,10 +47,13 @@ def index():
 
 @app.route('/auth/login')
 def auth_login():
+    if session.get('user'):
+        return redirect('/')
     from backend import auth
     flow = auth.get_auth_flow()
+    auth_uri = flow.pop('auth_uri')  # strip before storing — auth_uri can push session cookie over 4KB limit
     session['auth_flow'] = flow
-    return redirect(flow['auth_uri'])
+    return redirect(auth_uri)
 
 
 @app.route('/auth/callback')
@@ -65,27 +61,27 @@ def auth_callback():
     from backend import auth
     flow = session.pop('auth_flow', None)
     if not flow:
-        return redirect('/login?error=session_expired')
+        return redirect('/auth/login?error=session_expired')
 
     try:
         result = auth.handle_callback(flow, dict(request.args))
         user = auth.get_user_info(result['access_token'])
         upn = user.get('userPrincipalName', '')
         if not auth.is_allowed_domain(upn):
-            return redirect('/login?error=unauthorized_domain')
+            return redirect('/auth/login?error=unauthorized_domain')
         session['user'] = {
             'name': user.get('displayName', ''),
             'email': upn,
         }
         return redirect('/')
     except Exception:
-        return redirect('/login?error=auth_failed')
+        return redirect('/auth/login?error=auth_failed')
 
 
 @app.route('/auth/logout')
 def auth_logout():
     session.clear()
-    return redirect('/login')
+    return redirect('/auth/login')
 
 
 @app.route('/api/me')
