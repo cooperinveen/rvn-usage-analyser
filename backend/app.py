@@ -59,6 +59,8 @@ def auth_login():
 @app.route('/auth/callback')
 def auth_callback():
     from backend import auth
+    if 'error' in request.args:
+        return redirect('/auth/login?error=auth_failed')
     flow = session.pop('auth_flow', None)
     if not flow:
         return redirect('/auth/login?error=session_expired')
