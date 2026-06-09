@@ -26,13 +26,23 @@
 <div id="upload-screen" class="screen">
     <div class="upload-hero">
         <div class="upload-card">
-            <div class="upload-icon">📡</div>
+            <svg class="upload-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="24" cy="24" r="3"/>
+                <path d="M16 16a11 11 0 0 0 0 16"/>
+                <path d="M32 16a11 11 0 0 1 0 16"/>
+                <path d="M11 11a18 18 0 0 0 0 26"/>
+                <path d="M37 11a18 18 0 0 1 0 26"/>
+            </svg>
             <h1 class="upload-title">Teletrax Usage Tracker</h1>
             <p class="upload-subtitle">Upload a Teletrax export to see how your stories are performing — in plain English, no jargon.</p>
 
             <div class="upload-zone" id="upload-zone">
                 <div class="upload-zone-inner" id="upload-zone-inner">
-                    <div class="upload-zone-icon">⬆️</div>
+                    <svg class="upload-zone-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 22V6"/>
+                        <path d="M9 13l7-7 7 7"/>
+                        <path d="M6 22v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"/>
+                    </svg>
                     <p class="upload-zone-text">Drag and drop your export here</p>
                     <p class="upload-zone-sub">or</p>
                     <label class="btn btn-primary" for="file-input">Choose File</label>
@@ -107,7 +117,10 @@
             <!-- Search + Filters -->
             <div class="search-filter-bar">
                 <div class="search-wrap">
-                    <span class="search-icon">🔍</span>
+                    <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="7" cy="7" r="5"/>
+                        <path d="M11 11l3 3"/>
+                    </svg>
                     <input type="text" id="search-input" placeholder="Search by story slug — e.g. ukraine, iran, soccer..." class="search-input">
                     <button class="search-clear" id="search-clear" style="display:none">✕</button>
                 </div>

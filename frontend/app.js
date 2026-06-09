@@ -316,7 +316,10 @@ function renderTable() {
         storiesTbody.innerHTML = `
             <tr><td colspan="7">
                 <div class="empty-state">
-                    <div class="empty-state-icon">🔍</div>
+                    <svg class="empty-state-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="7" cy="7" r="5"/>
+                        <path d="M11 11l3 3"/>
+                    </svg>
                     <p class="empty-state-text">No stories match your search</p>
                     <p class="empty-state-sub">Try a different keyword or clear your filters</p>
                 </div>

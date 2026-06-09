@@ -117,7 +117,7 @@ body {
     width: 100%;
     text-align: center;
 }
-.upload-icon { font-size: 48px; margin-bottom: 16px; }
+.upload-icon { width: 48px; height: 48px; margin-bottom: 16px; color: var(--tr-orange); display: block; margin-left: auto; margin-right: auto; }
 .upload-title { font-size: 28px; font-weight: 700; color: var(--tr-racing-green); margin: 0 0 10px; }
 .upload-subtitle { font-size: 16px; color: var(--tr-text-light); margin: 0 0 32px; line-height: 1.5; }
 
@@ -133,7 +133,7 @@ body {
     border-color: var(--tr-orange);
     background: rgba(214,64,0,0.03);
 }
-.upload-zone-icon { font-size: 32px; margin-bottom: 12px; }
+.upload-zone-icon { width: 32px; height: 32px; margin-bottom: 12px; color: var(--tr-text-light); display: block; margin-left: auto; margin-right: auto; }
 .upload-zone-text { font-size: 16px; font-weight: 500; color: var(--tr-text); margin: 0 0 6px; }
 .upload-zone-sub { font-size: 14px; color: var(--tr-text-light); margin: 0 0 16px; }
 .upload-zone-formats { font-size: 12px; color: var(--tr-text-light); margin: 12px 0 0; }
@@ -198,7 +198,7 @@ body {
     display: flex;
     align-items: center;
 }
-.search-icon { position: absolute; left: 12px; font-size: 16px; color: var(--tr-text-light); }
+.search-icon { position: absolute; left: 12px; width: 16px; height: 16px; color: var(--tr-text-light); pointer-events: none; }
 .search-input {
     font-family: 'Clario', sans-serif;
     font-size: 14px;
@@ -484,7 +484,7 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
     padding: 48px 20px;
     color: var(--tr-text-light);
 }
-.empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state-icon { width: 40px; height: 40px; margin-bottom: 12px; color: var(--tr-text-light); display: block; margin-left: auto; margin-right: auto; }
 .empty-state-text { font-size: 16px; font-weight: 500; color: var(--tr-text); margin: 0 0 6px; }
 .empty-state-sub { font-size: 14px; margin: 0; }
 
