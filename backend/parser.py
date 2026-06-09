@@ -12,6 +12,7 @@ COL_ALIASES = {
     'local_start': ['Local detection start', 'hitLocalDetectionStart', 'detection_start_date_time_local'],
     'story_id': ['Story ID', 'itemid', 'Item ID'],
     'slug': ['Slug line', 'slug', 'Slug'],
+    'headline': ['Headline', 'headline', 'Title', 'title'],
     'detection_duration': ['Detection duration', 'hitDetectionDuration', 'detection_length'],
     'actual_length': ['Actual detection length', 'hitActualDetectionLength'],
     'asset_length': ['Asset: Length', 'assetLength'],
@@ -66,30 +67,76 @@ def _seconds_to_hms(seconds):
         return f"{h}h {m}m"
 
 
-def _map_region(region_val):
-    """Normalise region names into broad editorial groupings."""
-    if not region_val or pd.isnull(region_val):
-        return 'Other'
-    r = str(region_val).lower()
-    if any(x in r for x in ['united states', 'usa', 'canada', 'mexico', 'latin', 'brazil', 'argentina', 'colombia']):
-        return 'Americas'
-    if any(x in r for x in ['china', 'japan', 'korea', 'india', 'australia', 'asia', 'singapore', 'thailand',
-                              'indonesia', 'philippines', 'vietnam', 'malaysia', 'hong kong', 'taiwan',
-                              'new zealand', 'pakistan', 'bangladesh']):
-        return 'Asia Pacific'
-    if any(x in r for x in ['arab', 'saudi', 'egypt', 'iran', 'iraq', 'israel', 'jordan', 'kuwait',
-                              'qatar', 'uae', 'united arab', 'bahrain', 'oman', 'yemen', 'syria',
-                              'lebanon', 'middle east', 'turkey']):
-        return 'Middle East'
-    if any(x in r for x in ['africa', 'nigeria', 'kenya', 'ghana', 'ethiopia', 'south africa',
-                              'tanzania', 'uganda', 'senegal', 'morocco', 'algeria', 'tunisia']):
-        return 'Africa'
-    if any(x in r for x in ['russia', 'ukraine', 'poland', 'germany', 'france', 'italy', 'spain',
-                              'uk', 'united kingdom', 'britain', 'netherlands', 'belgium', 'sweden',
-                              'norway', 'denmark', 'finland', 'portugal', 'austria', 'switzerland',
-                              'czech', 'hungary', 'romania', 'greece', 'europe', 'international']):
-        return 'Europe'
-    return 'Other'
+def _region_from_slug(slug):
+    """Derive editorial regions from slug (e.g. USA-CHINA/TARIFFS → {Americas, Asia Pacific}).
+    Returns a set — stories can belong to multiple regions."""
+    if not slug:
+        return {'Other'}
+    import re
+    s = str(slug).upper()
+    # Strip simple ADVISORY / CORRECTION prefixes
+    s = re.sub(r'^(ADVISORY|CORRECTION)[-\s]+', '', s).strip()
+    # Strip numeric legacy prefixes (e.g. "3128WD GERMANY...")
+    s = re.sub(r'^\d+[A-Z]{0,4}\s+', '', s)
+    # Check every hyphen-separated token in the topic (before the /)
+    tokens = [t.strip() for t in s.split('/')[0].split('-') if t.strip()]
+
+    AMERICAS = {
+        'USA', 'US', 'TRUMP', 'BIDEN', 'OBAMA', 'CALIFORNIA', 'TEXAS', 'FLORIDA',
+        'MIAMI', 'SEATTLE', 'ARIZONA', 'OKLAHOMA', 'HAWAII', 'COLORADO', 'WASHINGTON',
+        'CANADA', 'MEXICO', 'CUBA', 'BRAZIL', 'ARGENTINA', 'COLOMBIA', 'PERU', 'CHILE',
+        'BOLIVIA', 'VENEZUELA', 'ECUADOR', 'HAITI', 'PANAMA', 'HONDURAS', 'GUATEMALA',
+        'SAN FRANCISCO', 'NEW YORK', 'LATIN', 'UNITEDHEALTH', 'AMAZON',
+    }
+    ASIA_PACIFIC = {
+        'CHINA', 'JAPAN', 'INDIA', 'AUSTRALIA', 'TAIWAN', 'SOUTHKOREA', 'NORTHKOREA',
+        'INDONESIA', 'PHILIPPINES', 'VIETNAM', 'MALAYSIA', 'THAILAND', 'SINGAPORE',
+        'PAKISTAN', 'BANGLADESH', 'MYANMAR', 'LAOS', 'CAMBODIA', 'SRILANKA',
+        'NEPAL', 'MONGOLIA', 'KAZAKHSTAN', 'KYRGYZSTAN', 'TAJIKISTAN', 'NEWZEALAND',
+        'HONGKONG', 'MACAU', 'BYD', 'SAMSUNG', 'AUTOSHOW', 'PEGATRON', 'VINFAST',
+        'SHINSEGAE', 'HUAWEI', 'XIAOMI', 'APEC', 'ASEAN', 'SOUTHCHINASEA', 'PANASIAN',
+        'PAN ASIA', 'ASIA',
+    }
+    MIDDLE_EAST = {
+        'IRAN', 'IRAQ', 'ISRAEL', 'ISRAELI', 'SAUDI', 'EGYPT', 'SYRIA', 'LEBANON',
+        'JORDAN', 'KUWAIT', 'QATAR', 'UAE', 'EMIRATES', 'BAHRAIN', 'OMAN', 'YEMEN',
+        'PALESTINE', 'PALESTINIANS', 'HAMAS', 'MIDEAST', 'GULF', 'NAHOST',
+        'WARCRIMES', 'UNRWA', 'ISRAELPALESTINIANS', 'JERUSALEM',
+        'TURKEY', 'AFGHAN', 'AFGHANISTAN',
+    }
+    AFRICA = {
+        'AFRICA', 'SAFRICA', 'NIGERIA', 'KENYA', 'GHANA', 'ETHIOPIA', 'TANZANIA',
+        'UGANDA', 'SENEGAL', 'MOROCCO', 'ALGERIA', 'TUNISIA', 'EGYPT',
+        'CONGO', 'MALI', 'NIGER', 'SUDAN', 'SOMALIA', 'LIBYA', 'RWANDA',
+        'ZIMBABWE', 'MOZAMBIQUE', 'MADAGASCAR', 'GAMBIA', 'IVORYCOAST',
+        'WESTAFRICA', 'ANGOLA', 'CAMEROON', 'BURKINA', 'EBOLA',
+    }
+    EUROPE = {
+        'RUSSIA', 'UKRAINE', 'GERMANY', 'FRANCE', 'BRITAIN', 'ITALY', 'SPAIN',
+        'POLAND', 'SWEDEN', 'NORWAY', 'DENMARK', 'FINLAND', 'NETHERLANDS',
+        'BELGIUM', 'AUSTRIA', 'SWITZERLAND', 'PORTUGAL', 'GREECE', 'HUNGARY',
+        'ROMANIA', 'CZECH', 'BULGARIA', 'CROATIA', 'SERBIA', 'ALBANIA', 'KOSOVO',
+        'LATVIA', 'LITHUANIA', 'ESTONIA', 'IRELAND', 'SCOTLAND', 'CYPRUS',
+        'MALTA', 'LUXEMBOURG', 'SLOVAKIA', 'SLOVENIA', 'MONTENEGRO', 'MOLDOVA',
+        'BELARUS', 'ARMENIA', 'AZERBAIJAN', 'GEORGIA', 'NORDIC', 'EU',
+        'EUROZONE', 'ECB', 'NATO', 'EUROPE', 'EUROPEAN', 'DEUTSCHLAND',
+        'BUNDESTAG', 'GROKO', 'FAESER', 'BUNDESWEHR', 'SPRITPREISE', 'TANKSTELLEN',
+        'POPE', 'VATICAN', 'BALTIC', 'NAGORNO', 'MIGRATION',
+    }
+
+    regions = set()
+    for token in tokens:
+        if token in MIDDLE_EAST:
+            regions.add('Middle East')
+        elif token in AFRICA:
+            regions.add('Africa')
+        elif token in AMERICAS:
+            regions.add('Americas')
+        elif token in ASIA_PACIFIC:
+            regions.add('Asia Pacific')
+        elif token in EUROPE:
+            regions.add('Europe')
+    return regions if regions else {'Other'}
 
 
 def parse_file(file_bytes, filename):
@@ -122,10 +169,10 @@ def parse_file(file_bytes, filename):
     slug_col = col.get('slug') or col.get('story_id')
     df['_slug'] = df[slug_col].fillna('Unknown').astype(str).str.strip()
     df['_story_id'] = df[col['story_id']].fillna('').astype(str).str.strip() if 'story_id' in col else ''
+    df['_headline'] = df[col['headline']].fillna('').astype(str).str.strip() if 'headline' in col else ''
     df['_channel'] = df[col['channel']].fillna('Unknown').astype(str).str.strip()
     df['_market'] = df[col['market']].fillna('Unknown').astype(str).str.strip() if 'market' in col else 'Unknown'
-    df['_region_raw'] = df[col['region']].fillna('').astype(str).str.strip() if 'region' in col else ''
-    df['_region'] = df['_region_raw'].apply(_map_region)
+    # Region derived from slug (story origin), not broadcast region column
 
     # Parse time columns
     df['_actual_secs'] = df[col['actual_length']].apply(_td_to_seconds) if 'actual_length' in col else 0
@@ -156,6 +203,8 @@ def parse_file(file_bytes, filename):
 
     for slug, grp in grouped:
         story_id = grp['_story_id'].iloc[0] if '_story_id' in grp.columns else ''
+        headline_series = grp['_headline'][grp['_headline'] != ''] if '_headline' in grp.columns else pd.Series([], dtype=str)
+        headline = headline_series.iloc[0] if len(headline_series) else ''
         airings = len(grp)
         channels = grp['_channel'].nunique()
         countries = grp['_market'].nunique()
@@ -185,11 +234,12 @@ def parse_file(file_bytes, filename):
         mkt_counts = mkt_counts.sort_values('airings', ascending=False)
         all_markets = mkt_counts.to_dict('records')
 
-        # Regions represented
-        regions = grp['_region'].value_counts().to_dict()
+        # Regions derived from the story slug (not broadcast location); can be multiple
+        regions = {r: 1 for r in _region_from_slug(slug)}
 
         stories.append({
             'slug': slug,
+            'headline': headline,
             'story_id': story_id,
             'airings': int(airings),
             'channels': int(channels),
