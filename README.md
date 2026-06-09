@@ -18,6 +18,8 @@ Upload a `.csv` or `.xlsx` export → get:
 - **Insights panel** — top 10 stories, channels, and countries at a glance
 - **Export** — download the aggregated summary as a clean Excel file
 
+Access is restricted to Thomson Reuters staff via Microsoft / Azure AD SSO.
+
 ---
 
 ## How to export from Teletrax
@@ -70,10 +72,12 @@ api/                  Vercel entry points
   blob-upload.js      Node.js handler — generates signed upload tokens
   index.py            Python entry point (imports Flask app)
 backend/
-  app.py              Flask routes (/api/process, /api/upload, /api/export)
+  app.py              Flask routes (/auth/*, /api/process, /api/upload, /api/export, /api/me)
+  auth.py             MSAL wrapper for Azure AD auth code flow
   parser.py           Teletrax CSV/XLSX ingestion and aggregation
 frontend/
-  index.html          Single-page app
+  index.html          Single-page app (requires login)
+  login.html          Sign-in screen with Microsoft button (rendered on auth errors)
   style.css           Reuters branding + all layout
   app.js              All client logic
 docs/                 Teletrax API reference (local only, gitignored)
@@ -97,6 +101,11 @@ vercel --prod
 | Variable | Purpose |
 |---|---|
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob store token — never log or print this |
+| `AZURE_CLIENT_ID` | Azure AD app registration client ID |
+| `AZURE_CLIENT_SECRET` | The secret **Value** (not the secret ID) from Azure → App registration → Certificates & secrets. Pasting the secret ID instead of the value causes `AADSTS7000215` and a silent redirect loop |
+| `AZURE_TENANT_ID` | Reuters tenant ID |
+| `REDIRECT_URI` | OAuth callback URL, e.g. `https://rvn-usage-tracker.vercel.app/auth/callback` |
+| `FLASK_SECRET_KEY` | Static signing key for session cookies (generate with `python -c "import secrets; print(secrets.token_hex(32))"`) |
 
 ### Key constraints
 

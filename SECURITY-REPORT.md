@@ -96,12 +96,11 @@ Note: `style-src 'unsafe-inline'` is required because the frontend sets inline `
 
 ---
 
-### Low — Accepted (by design)
+### Resolved — Authentication added (2026-06-09)
 
-#### No authentication
-The tool is fully public — anyone with the URL can upload files and use the parsing infrastructure. This is a deliberate product decision for the current phase (internal tool distributed by URL). The server processes uploaded data but retains nothing between requests.
+The app now requires Microsoft / Azure AD SSO via MSAL auth code flow. All routes apart from `/auth/*` are protected by a `login_required` decorator; unauthenticated `/api/*` calls return 401 JSON, browser navigation redirects to `/auth/login`. UPN domain is restricted to `thomsonreuters.com`, `reuters.com`, `tr.com`.
 
-**Mitigation available if needed:** Vercel Deployment Protection (Project Settings → Deployment Protection) adds password or SSO protection with no code changes.
+Session cookies are `Secure; HttpOnly; SameSite=Lax`. Only the user identity and the MSAL `auth_flow` (minus `auth_uri`) are stored in the cookie — no access token, keeping the payload under the 4KB cookie limit.
 
 #### Information disclosure via HTML/JS source
 Passive recon from the public URL reveals:
@@ -126,7 +125,7 @@ None of this constitutes a vulnerability on its own. The Blob store ID is not a 
 | Upload size cap | ✅ 20 MB enforced at Vercel Blob token level |
 | Input validation | ✅ All JSON bodies guarded against non-dict input |
 | `BLOB_READ_WRITE_TOKEN` exposure | ✅ Never logged, never returned in any response |
-| Authentication | ⚠️ None — access is URL-based (accepted for current phase) |
+| Authentication | ✅ Azure AD SSO — domain-restricted to Thomson Reuters staff (added 2026-06-09) |
 | Rate limiting | ⚠️ None — Vercel plan limits apply but no per-IP throttling |
 
 ---
