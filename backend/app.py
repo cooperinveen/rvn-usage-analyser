@@ -1,10 +1,15 @@
 import os
 import secrets
+import logging
+import traceback
 import urllib.request
 from functools import wraps
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, Response, session, redirect
 from backend.parser import parse_file, generate_export
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
 
 FRONTEND_DIR = str(Path(__file__).parent.parent / 'frontend')
 
@@ -48,36 +53,79 @@ def index():
 @app.route('/auth/login')
 def auth_login():
     if session.get('user'):
+        logger.info('[auth/login] user already in session, redirecting to /')
         return redirect('/')
     from backend import auth
-    flow = auth.get_auth_flow()
+    try:
+        flow = auth.get_auth_flow()
+    except Exception as e:
+        logger.error(f'[auth/login] get_auth_flow failed: {type(e).__name__}: {e}\n{traceback.format_exc()}')
+        return redirect('/auth/login?error=auth_failed&where=login_flow')
     auth_uri = flow.pop('auth_uri')  # strip before storing — auth_uri can push session cookie over 4KB limit
     session['auth_flow'] = flow
+    logger.info(f'[auth/login] flow created, session keys after store: {list(session.keys())}')
     return redirect(auth_uri)
 
 
 @app.route('/auth/callback')
 def auth_callback():
     from backend import auth
+    logger.info(f'[auth/callback] entry — query keys: {list(request.args.keys())}, session keys: {list(session.keys())}')
+
     if 'error' in request.args:
-        return redirect('/auth/login?error=auth_failed')
+        err = request.args.get('error', '')
+        err_desc = request.args.get('error_description', '')
+        logger.error(f'[auth/callback] microsoft returned error: {err} — {err_desc}')
+        return redirect('/auth/login?error=auth_failed&where=ms_error')
+
     flow = session.pop('auth_flow', None)
     if not flow:
+        logger.error('[auth/callback] no auth_flow in session — cookie missing or session reset')
         return redirect('/auth/login?error=session_expired')
 
     try:
         result = auth.handle_callback(flow, dict(request.args))
+    except Exception as e:
+        logger.error(f'[auth/callback] handle_callback failed: {type(e).__name__}: {e}\n{traceback.format_exc()}')
+        return redirect('/auth/login?error=auth_failed&where=token_exchange')
+
+    try:
         user = auth.get_user_info(result['access_token'])
-        upn = user.get('userPrincipalName', '')
-        if not auth.is_allowed_domain(upn):
-            return redirect('/auth/login?error=unauthorized_domain')
-        session['user'] = {
-            'name': user.get('displayName', ''),
-            'email': upn,
-        }
-        return redirect('/')
-    except Exception:
-        return redirect('/auth/login?error=auth_failed')
+    except Exception as e:
+        logger.error(f'[auth/callback] get_user_info failed: {type(e).__name__}: {e}\n{traceback.format_exc()}')
+        return redirect('/auth/login?error=auth_failed&where=graph_me')
+
+    upn = user.get('userPrincipalName', '')
+    logger.info(f'[auth/callback] graph returned upn={upn!r} displayName={user.get("displayName", "")!r}')
+
+    if not auth.is_allowed_domain(upn):
+        logger.error(f'[auth/callback] domain not allowed: upn={upn!r}')
+        return redirect('/auth/login?error=unauthorized_domain')
+
+    session['user'] = {
+        'name': user.get('displayName', ''),
+        'email': upn,
+    }
+    logger.info(f'[auth/callback] login success for {upn}')
+    return redirect('/')
+
+
+@app.route('/auth/debug')
+def auth_debug():
+    """TEMPORARY diagnostic endpoint — remove after SSO is fixed."""
+    return jsonify({
+        'session_keys': list(session.keys()),
+        'has_flow': 'auth_flow' in session,
+        'has_user': 'user' in session,
+        'env_present': {
+            'AZURE_CLIENT_ID': bool(os.environ.get('AZURE_CLIENT_ID')),
+            'AZURE_CLIENT_SECRET': bool(os.environ.get('AZURE_CLIENT_SECRET')),
+            'AZURE_TENANT_ID': bool(os.environ.get('AZURE_TENANT_ID')),
+            'REDIRECT_URI': os.environ.get('REDIRECT_URI', '<unset>'),
+            'FLASK_SECRET_KEY': bool(os.environ.get('FLASK_SECRET_KEY')),
+            'VERCEL': os.environ.get('VERCEL', '<unset>'),
+        },
+    })
 
 
 @app.route('/auth/logout')
