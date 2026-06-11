@@ -412,9 +412,9 @@ function openStoryModal(slug) {
 }
 
 function renderModalBody(s) {
-    const clipNote = s.asset_secs > 0
-        ? `Clients used an average of <strong>${escHtml(s.avg_clip)}</strong> from a <strong>${escHtml(s.asset_length)}</strong> story.`
-        : `Average clip used: <strong>${escHtml(s.avg_clip)}</strong>`;
+    const assetCaption = s.asset_secs > 0
+        ? `Original story length: <strong>${escHtml(s.asset_length)}</strong>`
+        : '';
 
     const trendChart = renderTrendChart(s.trend, state.trendLabels, state.trendUnit);
 
@@ -441,9 +441,13 @@ function renderModalBody(s) {
                             <span class="stat-card-value">${s.days_in_rotation}</span>
                             <span class="stat-card-label">Days in rotation</span>
                         </div>
-                        <div class="stat-card stat-card-wide">
+                        <div class="stat-card">
                             <span class="stat-card-value">${escHtml(s.total_air_time)}</span>
                             <span class="stat-card-label">Total air time</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-card-value">${escHtml(s.avg_clip)}</span>
+                            <span class="stat-card-label">Avg clip used</span>
                         </div>
                     </div>
                 </div>
@@ -453,9 +457,8 @@ function renderModalBody(s) {
                     <div class="trend-chart-wrap">${trendChart}</div>
                 </div>` : ''}
             </div>
-            <div class="clip-insight">${clipNote}</div>
-            <p style="font-size:12px; color:var(--tr-text-light); margin:8px 0 0">
-                First aired: <strong>${escHtml(s.first_seen)}</strong> &nbsp;·&nbsp; Last aired: <strong>${escHtml(s.last_seen)}</strong>
+            <p style="font-size:12px; color:var(--tr-text-light); margin:14px 0 0">
+                ${assetCaption ? `${assetCaption} &nbsp;·&nbsp; ` : ''}First aired: <strong>${escHtml(s.first_seen)}</strong> &nbsp;·&nbsp; Last aired: <strong>${escHtml(s.last_seen)}</strong>
             </p>
         </div>
 

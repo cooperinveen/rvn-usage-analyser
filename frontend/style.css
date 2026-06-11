@@ -332,7 +332,6 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .stats-grid-compact .stat-card { padding: 12px 10px; }
 .stats-grid-compact .stat-card-value { font-size: 22px; }
-.stats-grid-compact .stat-card-wide { grid-column: 1 / -1; }
 .modal-overview-chart .trend-chart-wrap { padding: 0; justify-content: flex-start; }
 .modal-overview-chart .trend-chart { max-width: 100%; }
 
