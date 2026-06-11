@@ -314,6 +314,16 @@ td.col-longevity { text-align: right; font-variant-numeric: tabular-nums; }
 .longevity-mid  { color: #6b4800; background: var(--tr-light-gold); }
 .longevity-low  { color: var(--tr-text-light); background: var(--tr-bg); }
 .longevity-na   { color: var(--tr-text-light); background: transparent; font-weight: 400; }
+/* Plain variant for the stat-card slot — inherits card padding, no chip pill */
+.stat-card .longevity-plain {
+    background: transparent;
+    padding: 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+.stat-card .longevity-plain.longevity-high { color: #123015; }
+.stat-card .longevity-plain.longevity-mid  { color: #6b4800; }
+.stat-card .longevity-plain.longevity-low  { color: var(--tr-text-light); }
 .sparkline { display: block; }
 .sparkline .spark-bar { fill: var(--tr-orange); }
 .sparkline .spark-bar-empty { fill: var(--tr-border); }

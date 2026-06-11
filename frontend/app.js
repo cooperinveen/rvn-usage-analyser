@@ -420,14 +420,14 @@ function openStoryModal(slug) {
 function renderModalBody(s) {
     const trendChart = renderTrendChart(s.trend, state.trendLabels, state.trendUnit);
 
-    // Mini-panel: top channel, top country, longevity
+    // Mini-panel: top channel, top country, avg clip
     const topCh = s.all_channels?.[0];
     const topCtry = s.all_markets?.[0];
     const miniPanel = `
         <ul class="modal-mini-panel">
             ${topCh ? `<li><span class="mini-label">Most aired on</span><span class="mini-value">${escHtml(topCh.channel)} <span class="mini-sub">(${topCh.airings.toLocaleString()} airings)</span></span></li>` : ''}
             ${topCtry ? `<li><span class="mini-label">Most aired in</span><span class="mini-value">${escHtml(topCtry.market)} <span class="mini-sub">(${topCtry.airings.toLocaleString()} airings)</span></span></li>` : ''}
-            <li><span class="mini-label">Longevity</span><span class="mini-value">${longevityDisplay(s.longevity)}</span></li>
+            <li><span class="mini-label">Avg clip used</span><span class="mini-value">${escHtml(s.avg_clip)}</span></li>
         </ul>
     `;
 
@@ -436,7 +436,6 @@ function renderModalBody(s) {
         <div class="modal-section">
             <div class="modal-overview">
                 <div class="modal-overview-stats">
-                    <p class="modal-section-title">Performance Summary</p>
                     <div class="stats-grid stats-grid-compact">
                         <div class="stat-card">
                             <span class="stat-card-value">${s.airings.toLocaleString()}</span>
@@ -459,14 +458,13 @@ function renderModalBody(s) {
                             <span class="stat-card-label">Total air time</span>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-card-value">${escHtml(s.avg_clip)}</span>
-                            <span class="stat-card-label">Avg clip used</span>
+                            <span class="stat-card-value">${longevityDisplay(s.longevity, true)}</span>
+                            <span class="stat-card-label">Longevity</span>
                         </div>
                     </div>
                 </div>
                 ${trendChart ? `
                 <div class="modal-overview-chart">
-                    <p class="modal-section-title">Airings over time</p>
                     <div class="trend-chart-wrap">${trendChart}</div>
                     ${miniPanel}
                 </div>` : `
@@ -476,7 +474,6 @@ function renderModalBody(s) {
 
         <!-- 2. Channel Breakdown (paginated) -->
         <div class="modal-section">
-            <p class="modal-section-title">Channel Breakdown (${s.all_channels.length} channel${s.all_channels.length === 1 ? '' : 's'})</p>
             <div class="modal-table-wrap">
                 <table class="modal-table">
                     <thead><tr><th>Channel</th><th>Country</th><th>Airings</th><th>Air Time</th></tr></thead>
@@ -649,10 +646,11 @@ function slugDisplay(slugOrStory) {
     return escHtml(displaySlug(slugOrStory));
 }
 
-function longevityDisplay(pct) {
+function longevityDisplay(pct, plain) {
     if (pct == null) return `<span class="longevity longevity-na" title="Published too late in the dataset to compute longevity">—</span>`;
     const cls = pct >= 60 ? 'longevity-high' : pct >= 30 ? 'longevity-mid' : 'longevity-low';
-    return `<span class="longevity ${cls}" title="${pct}% of airings happened after the first 24h">${pct}%</span>`;
+    const variant = plain ? 'longevity-plain' : '';
+    return `<span class="longevity ${cls} ${variant}" title="${pct}% of airings happened after the first 24h">${pct}%</span>`;
 }
 
 function renderTrendChart(counts, labels, unit) {
