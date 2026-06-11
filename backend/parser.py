@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as _np
 import io
 from datetime import timedelta
 from collections import defaultdict
@@ -197,6 +198,22 @@ def parse_file(file_bytes, filename):
         'to': valid_dates.max().strftime('%d %b %Y %H:%M UTC') if len(valid_dates) else 'Unknown',
     }
 
+    # Trend bin edges shared across all stories so sparklines are comparable.
+    # <24h → hourly bins (up to 24); ≥24h → daily bins capped at 14.
+    trend_edges = []
+    trend_labels = []
+    trend_unit = 'day'
+    if len(valid_dates):
+        span_hours = (valid_dates.max() - valid_dates.min()).total_seconds() / 3600
+        if span_hours < 24:
+            trend_unit = 'hour'
+            n_bins = max(1, min(24, int(round(span_hours)) or 1))
+            trend_edges = pd.date_range(valid_dates.min().floor('h'), periods=n_bins + 1, freq='h', tz='UTC')
+        else:
+            n_bins = min(14, max(2, int(span_hours // 24) + 1))
+            trend_edges = pd.date_range(valid_dates.min().floor('D'), periods=n_bins + 1, freq='D', tz='UTC')
+        trend_labels = [e.strftime('%d %b' if trend_unit == 'day' else '%H:%M') for e in trend_edges[:-1]]
+
     # --- Aggregate per story ---
     stories = []
     grouped = df.groupby('_slug', sort=False)
@@ -237,6 +254,18 @@ def parse_file(file_bytes, filename):
         # Regions derived from the story slug (not broadcast location); can be multiple
         regions = {r: 1 for r in _region_from_slug(slug)}
 
+        # Trend sparkline: airings per shared time bucket
+        if len(trend_edges):
+            ts = grp['_utc_start'].dropna()
+            if len(ts):
+                counts, _ = _np.histogram(ts.astype('int64').to_numpy(),
+                                          bins=trend_edges.astype('int64').to_numpy())
+                trend = [int(c) for c in counts]
+            else:
+                trend = [0] * (len(trend_edges) - 1)
+        else:
+            trend = []
+
         stories.append({
             'slug': slug,
             'headline': headline,
@@ -256,6 +285,7 @@ def parse_file(file_bytes, filename):
             'all_channels': all_channels,
             'all_markets': all_markets,
             'regions': regions,
+            'trend': trend,
         })
 
     # Sort by airings descending
@@ -316,6 +346,8 @@ def parse_file(file_bytes, filename):
         'top_channels': top_channels_list,
         'top_markets': top_markets_list,
         'date_range': date_range,
+        'trend_labels': trend_labels,
+        'trend_unit': trend_unit,
     }
 
 

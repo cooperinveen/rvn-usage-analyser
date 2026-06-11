@@ -294,8 +294,12 @@ tbody tr:last-child td { border-bottom: none; }
 
 .col-num { text-align: right; width: 90px; }
 .col-time { width: 100px; }
+.col-trend { width: 100px; }
 .col-date { width: 130px; font-size: 12px; color: var(--tr-text-light); }
 .col-action { width: 60px; text-align: right; }
+.sparkline { display: block; }
+.sparkline .spark-bar { fill: var(--tr-orange); }
+.sparkline .spark-bar-empty { fill: var(--tr-border); }
 td.col-num { text-align: right; font-variant-numeric: tabular-nums; }
 td.col-date { font-size: 12px; color: var(--tr-text-light); }
 /* Story column fills remaining space; fixed width anchor prevents layout collapse */

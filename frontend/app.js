@@ -148,6 +148,8 @@ function loadData(data) {
     state.topChannels = data.top_channels;
     state.topMarkets = data.top_markets;
     state.dateRange = data.date_range;
+    state.trendLabels = data.trend_labels || [];
+    state.trendUnit = data.trend_unit || 'day';
     state.currentPage = 1;
     state.searchQuery = '';
     state.regionFilter = 'all';
@@ -314,7 +316,7 @@ function renderTable() {
 
     if (page.length === 0) {
         storiesTbody.innerHTML = `
-            <tr><td colspan="7">
+            <tr><td colspan="8">
                 <div class="empty-state">
                     <svg class="empty-state-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="7" cy="7" r="5"/>
@@ -329,6 +331,7 @@ function renderTable() {
 
     storiesTbody.innerHTML = page.map(s => {
         const barWidth = Math.max(2, Math.round(s.airings / maxAirings * 60));
+        const sparkline = renderSparkline(s.trend, state.trendLabels, state.trendUnit);
         return `
         <tr>
             <td class="slug-cell">
@@ -344,6 +347,7 @@ function renderTable() {
             <td class="col-num">${s.channels}</td>
             <td class="col-num">${s.countries}</td>
             <td class="col-time">${escHtml(s.total_air_time)}</td>
+            <td class="col-trend">${sparkline}</td>
             <td class="col-date">${escHtml(s.last_seen)}</td>
             <td class="col-action">
                 <button class="btn btn-ghost btn-sm" data-slug="${escHtml(s.slug)}">View</button>
@@ -570,5 +574,21 @@ function escHtml(str) {
 
 function slugDisplay(slug) {
     return escHtml(slug);
+}
+
+function renderSparkline(counts, labels, unit) {
+    if (!counts || counts.length === 0) return '';
+    const w = 84, h = 22, gap = 2;
+    const barW = Math.max(2, (w - gap * (counts.length - 1)) / counts.length);
+    const peak = Math.max(...counts, 1);
+    const bars = counts.map((c, i) => {
+        const barH = c === 0 ? 1 : Math.max(2, Math.round(c / peak * h));
+        const x = i * (barW + gap);
+        const y = h - barH;
+        const label = labels?.[i] ? `${labels[i]}: ${c} airing${c === 1 ? '' : 's'}` : `${c} airing${c === 1 ? '' : 's'}`;
+        const cls = c === 0 ? 'spark-bar spark-bar-empty' : 'spark-bar';
+        return `<rect class="${cls}" x="${x.toFixed(2)}" y="${y}" width="${barW.toFixed(2)}" height="${barH}"><title>${escHtml(label)}</title></rect>`;
+    }).join('');
+    return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-label="Airings per ${unit}">${bars}</svg>`;
 }
 
