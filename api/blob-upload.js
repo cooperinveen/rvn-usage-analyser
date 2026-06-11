@@ -33,7 +33,7 @@ export default async function handler(req, res) {
                     'text/csv',
                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 ],
-                maximumSizeInBytes: 20 * 1024 * 1024, // 20 MB — well above any real Teletrax export
+                maximumSizeInBytes: 50 * 1024 * 1024, // 50 MB — covers ~1 week XLSX exports; matches README promise
                 addRandomSuffix: false,
                 allowOverwrite: true,
                 access: 'public',

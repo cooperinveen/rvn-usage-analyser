@@ -85,7 +85,7 @@ Note: `style-src 'unsafe-inline'` is required because the frontend sets inline `
 #### Blob store abuse (no upload size cap)
 **What it was:** The blob token endpoint issued tokens with no `maximumSizeInBytes` constraint. Anyone with the URL could upload a file up to Vercel Blob's per-file maximum (500 MB), repeated with different filenames, inflating storage costs.
 
-**Fix:** `maximumSizeInBytes: 20971520` (20 MB) added to the token config. This is enforced server-side by Vercel Blob — the PUT is rejected before the data lands. 20 MB is generous for any real Teletrax export (a 12-hour Reuters export of ~56k rows is under 10 MB).
+**Fix:** `maximumSizeInBytes: 52428800` (50 MB) added to the token config. This is enforced server-side by Vercel Blob — the PUT is rejected before the data lands. 50 MB covers a one-week XLSX export (~27 MB observed) with headroom while still bounding worst-case storage cost.
 
 ---
 
