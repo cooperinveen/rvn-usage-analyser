@@ -312,6 +312,33 @@ tbody tr:last-child td { border-bottom: none; }
     max-width: 480px;
     height: auto;
 }
+
+/* Modal overview: stats grid (left) + trend chart (right) */
+.modal-overview {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(280px, 1.4fr);
+    gap: 24px;
+    align-items: start;
+    margin-bottom: 16px;
+}
+.modal-overview-stats .modal-section-title,
+.modal-overview-chart .modal-section-title {
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+.stats-grid-compact {
+    grid-template-columns: repeat(2, 1fr);
+    margin-bottom: 0;
+}
+.stats-grid-compact .stat-card { padding: 12px 10px; }
+.stats-grid-compact .stat-card-value { font-size: 22px; }
+.stats-grid-compact .stat-card-wide { grid-column: 1 / -1; }
+.modal-overview-chart .trend-chart-wrap { padding: 0; justify-content: flex-start; }
+.modal-overview-chart .trend-chart { max-width: 100%; }
+
+@media (max-width: 720px) {
+    .modal-overview { grid-template-columns: 1fr; gap: 16px; }
+}
 .trend-chart .trend-bar { fill: var(--tr-orange); }
 .trend-chart .trend-bar:hover { fill: var(--tr-dark-amber); }
 

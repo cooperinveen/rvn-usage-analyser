@@ -419,30 +419,39 @@ function renderModalBody(s) {
     const trendChart = renderTrendChart(s.trend, state.trendLabels, state.trendUnit);
 
     modalBody.innerHTML = `
-        <!-- 1. Headline Stats -->
+        <!-- 1. Headline stats + trend chart (side-by-side) -->
         <div class="modal-section">
-            <p class="modal-section-title">Performance Summary</p>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="stat-card-value">${s.airings.toLocaleString()}</span>
-                    <span class="stat-card-label">Airings</span>
+            <div class="modal-overview">
+                <div class="modal-overview-stats">
+                    <p class="modal-section-title">Performance Summary</p>
+                    <div class="stats-grid stats-grid-compact">
+                        <div class="stat-card">
+                            <span class="stat-card-value">${s.airings.toLocaleString()}</span>
+                            <span class="stat-card-label">Airings</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-card-value">${s.channels}</span>
+                            <span class="stat-card-label">Channels</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-card-value">${s.countries}</span>
+                            <span class="stat-card-label">Countries</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-card-value">${s.days_in_rotation}</span>
+                            <span class="stat-card-label">Days in rotation</span>
+                        </div>
+                        <div class="stat-card stat-card-wide">
+                            <span class="stat-card-value">${escHtml(s.total_air_time)}</span>
+                            <span class="stat-card-label">Total air time</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-card-value">${s.channels}</span>
-                    <span class="stat-card-label">Channels</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-card-value">${s.countries}</span>
-                    <span class="stat-card-label">Countries</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-card-value">${s.days_in_rotation}</span>
-                    <span class="stat-card-label">Days in rotation</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-card-value">${escHtml(s.total_air_time)}</span>
-                    <span class="stat-card-label">Total air time</span>
-                </div>
+                ${trendChart ? `
+                <div class="modal-overview-chart">
+                    <p class="modal-section-title">Airings over time</p>
+                    <div class="trend-chart-wrap">${trendChart}</div>
+                </div>` : ''}
             </div>
             <div class="clip-insight">${clipNote}</div>
             <p style="font-size:12px; color:var(--tr-text-light); margin:8px 0 0">
@@ -450,14 +459,7 @@ function renderModalBody(s) {
             </p>
         </div>
 
-        <!-- 2. Trend over time -->
-        ${trendChart ? `
-        <div class="modal-section">
-            <p class="modal-section-title">Airings over time</p>
-            <div class="trend-chart-wrap">${trendChart}</div>
-        </div>` : ''}
-
-        <!-- 3. Channel Breakdown (paginated) -->
+        <!-- 2. Channel Breakdown (paginated) -->
         <div class="modal-section">
             <p class="modal-section-title">Channel Breakdown (${s.all_channels.length} channel${s.all_channels.length === 1 ? '' : 's'})</p>
             <div class="modal-table-wrap">
