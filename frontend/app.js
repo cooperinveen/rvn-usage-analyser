@@ -30,7 +30,8 @@ const searchInput = $('search-input');
 const searchClear = $('search-clear');
 const storyModal = $('story-modal');
 const modalSlug = $('modal-slug');
-const modalStoryId = $('modal-story-id');
+const modalHeadline = $('modal-headline');
+const modalFirstAired = $('modal-first-aired');
 const modalAssetLength = $('modal-asset-length');
 const modalBody = $('modal-body');
 const headerStatus = $('header-status');
@@ -201,7 +202,7 @@ function renderInsights() {
         <div class="insight-item" data-slug="${escHtml(s.slug)}">
             <span class="insight-rank">${i + 1}</span>
             <div style="flex:1; min-width:0">
-                <div class="insight-name">${slugDisplay(s.slug)}</div>
+                <div class="insight-name">${slugDisplay(s)}</div>
                 ${s.headline ? `<div class="insight-headline">${escHtml(s.headline)}</div>` : ''}
                 <div class="insight-bar-wrap"><div class="insight-bar" style="width:${Math.round(s.airings/maxAirings*100)}%"></div></div>
             </div>
@@ -277,8 +278,7 @@ function applyFilters() {
     if (state.searchQuery) {
         const q = state.searchQuery;
         filtered = filtered.filter(s =>
-            s.slug.toLowerCase().includes(q) ||
-            (s.story_id && s.story_id.toLowerCase().includes(q)) ||
+            displaySlug(s).toLowerCase().includes(q) ||
             (s.headline && s.headline.toLowerCase().includes(q))
         );
     }
@@ -341,7 +341,7 @@ function renderTable() {
         return `
         <tr class="story-row" data-slug="${escHtml(s.slug)}" tabindex="0">
             <td class="slug-cell">
-                <div class="slug-main">${escHtml(s.slug)}</div>
+                <div class="slug-main">${escHtml(displaySlug(s))}</div>
                 ${s.headline ? `<div class="slug-headline">${escHtml(s.headline)}</div>` : ''}
             </td>
             <td class="col-num">
@@ -408,9 +408,10 @@ function openStoryModal(slug) {
     const story = state.allStories.find(s => s.slug === slug);
     if (!story) return;
 
-    modalSlug.textContent = slug;
-    modalStoryId.textContent = story.story_id || '';
-    modalAssetLength.textContent = story.asset_secs > 0 ? `Original story length · ${story.asset_length}` : '';
+    modalSlug.textContent = displaySlug(story);
+    modalHeadline.textContent = story.headline || '';
+    modalFirstAired.textContent = story.first_seen || '';
+    modalAssetLength.textContent = story.asset_secs > 0 ? story.asset_length : '';
     storyModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     renderModalBody(story);
@@ -471,9 +472,6 @@ function renderModalBody(s) {
                 </div>` : `
                 <div class="modal-overview-chart">${miniPanel}</div>`}
             </div>
-            <p style="font-size:12px; color:var(--tr-text-light); margin:14px 0 0">
-                First aired: <strong>${escHtml(s.first_seen)}</strong>
-            </p>
         </div>
 
         <!-- 2. Channel Breakdown (paginated) -->
@@ -634,8 +632,21 @@ function escHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
-function slugDisplay(slug) {
-    return escHtml(slug);
+function slugPrefix(story) {
+    if (!story || !story.story_id) return null;
+    const m = String(story.story_id).match(/^\d{1,4}/);
+    return m ? m[0] : null;
+}
+
+function displaySlug(story) {
+    const prefix = slugPrefix(story);
+    return prefix ? `${prefix}-${story.slug}` : story.slug;
+}
+
+function slugDisplay(slugOrStory) {
+    // Backwards-compat: callers may pass either a story object or just a slug string.
+    if (typeof slugOrStory === 'string') return escHtml(slugOrStory);
+    return escHtml(displaySlug(slugOrStory));
 }
 
 function longevityDisplay(pct) {
