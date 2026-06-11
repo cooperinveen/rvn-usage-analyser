@@ -291,13 +291,16 @@ td {
 }
 tbody tr:hover { background: #fafbfc; }
 tbody tr:last-child td { border-bottom: none; }
+tr.story-row { cursor: pointer; }
+tr.story-row:hover { background: #f5f7f9; }
+tr.story-row:focus { outline: none; background: #eef2f4; box-shadow: inset 2px 0 0 var(--tr-racing-green); }
+.slug-cell .muted, td.col-date .muted { color: var(--tr-text-light); }
 
 .col-num { text-align: right; width: 90px; }
 .col-time { width: 100px; }
 .col-trend { width: 100px; }
 .col-longevity { width: 90px; text-align: right; }
-.col-date { width: 130px; font-size: 12px; color: var(--tr-text-light); }
-.col-action { width: 60px; text-align: right; }
+.col-date { width: 140px; font-size: 12px; color: var(--tr-text-light); }
 td.col-longevity { text-align: right; font-variant-numeric: tabular-nums; }
 
 .longevity {

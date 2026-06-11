@@ -316,6 +316,7 @@ def parse_file(file_bytes, filename):
             'trend': trend,
             'longevity': longevity_pct,
             'publish_time': publish_time.strftime('%d %b %Y %H:%M') if pd.notna(publish_time) else '',
+            'publish_ts': int(publish_time.timestamp()) if pd.notna(publish_time) else None,
         })
 
     # Sort by airings descending

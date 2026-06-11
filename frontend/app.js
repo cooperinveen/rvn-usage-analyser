@@ -320,7 +320,7 @@ function renderTable() {
 
     if (page.length === 0) {
         storiesTbody.innerHTML = `
-            <tr><td colspan="9">
+            <tr><td colspan="8">
                 <div class="empty-state">
                     <svg class="empty-state-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="7" cy="7" r="5"/>
@@ -336,8 +336,9 @@ function renderTable() {
     storiesTbody.innerHTML = page.map(s => {
         const barWidth = Math.max(2, Math.round(s.airings / maxAirings * 60));
         const sparkline = renderSparkline(s.trend, state.trendLabels, state.trendUnit);
+        const publishDisplay = s.publish_time ? escHtml(s.publish_time) : '<span class="muted">—</span>';
         return `
-        <tr>
+        <tr class="story-row" data-slug="${escHtml(s.slug)}" tabindex="0">
             <td class="slug-cell">
                 <div class="slug-main">${escHtml(s.slug)}</div>
                 ${s.headline ? `<div class="slug-headline">${escHtml(s.headline)}</div>` : ''}
@@ -353,10 +354,7 @@ function renderTable() {
             <td class="col-time">${escHtml(s.total_air_time)}</td>
             <td class="col-trend">${sparkline}</td>
             <td class="col-longevity">${longevityDisplay(s.longevity)}</td>
-            <td class="col-date">${escHtml(s.last_seen)}</td>
-            <td class="col-action">
-                <button class="btn btn-ghost btn-sm" data-slug="${escHtml(s.slug)}">View</button>
-            </td>
+            <td class="col-date">${publishDisplay}</td>
         </tr>`;
     }).join('');
 }
@@ -534,8 +532,16 @@ function renderModalPagination(elId, kind, page, pages, start, total, noun) {
 
 // Open modal via delegated listeners (avoids inline onclick, which CSP blocks)
 $('stories-tbody').addEventListener('click', e => {
-    const btn = e.target.closest('[data-slug]');
-    if (btn) openStoryModal(btn.dataset.slug);
+    const row = e.target.closest('tr[data-slug]');
+    if (!row) return;
+    // Don't open the modal if the user was selecting text inside the row
+    if (window.getSelection().toString().length > 0) return;
+    openStoryModal(row.dataset.slug);
+});
+$('stories-tbody').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const row = e.target.closest('tr[data-slug]');
+    if (row) openStoryModal(row.dataset.slug);
 });
 $('top-stories-list').addEventListener('click', e => {
     const item = e.target.closest('[data-slug]');
