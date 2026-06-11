@@ -292,9 +292,13 @@ function applyFilters() {
         filtered = filtered.filter(s => s.airings >= state.minAirings);
     }
 
-    // Sort
+    // Sort — nulls always last regardless of direction
     filtered = [...filtered].sort((a, b) => {
         let av = a[state.sortKey], bv = b[state.sortKey];
+        const aNull = av == null, bNull = bv == null;
+        if (aNull && bNull) return 0;
+        if (aNull) return 1;
+        if (bNull) return -1;
         if (typeof av === 'string') av = av.toLowerCase();
         if (typeof bv === 'string') bv = bv.toLowerCase();
         if (av < bv) return state.sortDir === 'asc' ? -1 : 1;
@@ -316,7 +320,7 @@ function renderTable() {
 
     if (page.length === 0) {
         storiesTbody.innerHTML = `
-            <tr><td colspan="8">
+            <tr><td colspan="9">
                 <div class="empty-state">
                     <svg class="empty-state-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="7" cy="7" r="5"/>
@@ -348,6 +352,7 @@ function renderTable() {
             <td class="col-num">${s.countries}</td>
             <td class="col-time">${escHtml(s.total_air_time)}</td>
             <td class="col-trend">${sparkline}</td>
+            <td class="col-longevity">${longevityDisplay(s.longevity)}</td>
             <td class="col-date">${escHtml(s.last_seen)}</td>
             <td class="col-action">
                 <button class="btn btn-ghost btn-sm" data-slug="${escHtml(s.slug)}">View</button>
@@ -418,6 +423,17 @@ function renderModalBody(s) {
 
     const trendChart = renderTrendChart(s.trend, state.trendLabels, state.trendUnit);
 
+    // Mini-panel: top channel, top country, longevity
+    const topCh = s.all_channels?.[0];
+    const topCtry = s.all_markets?.[0];
+    const miniPanel = `
+        <ul class="modal-mini-panel">
+            ${topCh ? `<li><span class="mini-label">Most aired on</span><span class="mini-value">${escHtml(topCh.channel)} <span class="mini-sub">(${topCh.airings.toLocaleString()} airings)</span></span></li>` : ''}
+            ${topCtry ? `<li><span class="mini-label">Most aired in</span><span class="mini-value">${escHtml(topCtry.market)} <span class="mini-sub">(${topCtry.airings.toLocaleString()} airings)</span></span></li>` : ''}
+            <li><span class="mini-label">Longevity</span><span class="mini-value">${longevityDisplay(s.longevity)}</span></li>
+        </ul>
+    `;
+
     modalBody.innerHTML = `
         <!-- 1. Headline stats + trend chart (side-by-side) -->
         <div class="modal-section">
@@ -455,7 +471,9 @@ function renderModalBody(s) {
                 <div class="modal-overview-chart">
                     <p class="modal-section-title">Airings over time</p>
                     <div class="trend-chart-wrap">${trendChart}</div>
-                </div>` : ''}
+                    ${miniPanel}
+                </div>` : `
+                <div class="modal-overview-chart">${miniPanel}</div>`}
             </div>
             <p style="font-size:12px; color:var(--tr-text-light); margin:14px 0 0">
                 ${assetCaption ? `${assetCaption} &nbsp;·&nbsp; ` : ''}First aired: <strong>${escHtml(s.first_seen)}</strong> &nbsp;·&nbsp; Last aired: <strong>${escHtml(s.last_seen)}</strong>
@@ -614,6 +632,12 @@ function escHtml(str) {
 
 function slugDisplay(slug) {
     return escHtml(slug);
+}
+
+function longevityDisplay(pct) {
+    if (pct == null) return `<span class="longevity longevity-na" title="Published too late in the dataset to compute longevity">—</span>`;
+    const cls = pct >= 60 ? 'longevity-high' : pct >= 30 ? 'longevity-mid' : 'longevity-low';
+    return `<span class="longevity ${cls}" title="${pct}% of airings happened after the first 24h">${pct}%</span>`;
 }
 
 function renderTrendChart(counts, labels, unit) {

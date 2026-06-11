@@ -295,8 +295,22 @@ tbody tr:last-child td { border-bottom: none; }
 .col-num { text-align: right; width: 90px; }
 .col-time { width: 100px; }
 .col-trend { width: 100px; }
+.col-longevity { width: 90px; text-align: right; }
 .col-date { width: 130px; font-size: 12px; color: var(--tr-text-light); }
 .col-action { width: 60px; text-align: right; }
+td.col-longevity { text-align: right; font-variant-numeric: tabular-nums; }
+
+.longevity {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 2px;
+    display: inline-block;
+}
+.longevity-high { color: #123015; background: #e2efe4; }
+.longevity-mid  { color: #6b4800; background: var(--tr-light-gold); }
+.longevity-low  { color: var(--tr-text-light); background: var(--tr-bg); }
+.longevity-na   { color: var(--tr-text-light); background: transparent; font-weight: 400; }
 .sparkline { display: block; }
 .sparkline .spark-bar { fill: var(--tr-orange); }
 .sparkline .spark-bar-empty { fill: var(--tr-border); }
@@ -334,6 +348,41 @@ tbody tr:last-child td { border-bottom: none; }
 .stats-grid-compact .stat-card-value { font-size: 22px; }
 .modal-overview-chart .trend-chart-wrap { padding: 0; justify-content: flex-start; }
 .modal-overview-chart .trend-chart { max-width: 100%; }
+
+.modal-mini-panel {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--tr-border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.modal-mini-panel li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+}
+.modal-mini-panel .mini-label {
+    color: var(--tr-text-light);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+.modal-mini-panel .mini-value {
+    color: var(--tr-text);
+    font-weight: 500;
+    text-align: right;
+    word-break: break-word;
+}
+.modal-mini-panel .mini-sub {
+    color: var(--tr-text-light);
+    font-weight: 400;
+    font-size: 12px;
+}
 
 @media (max-width: 720px) {
     .modal-overview { grid-template-columns: 1fr; gap: 16px; }

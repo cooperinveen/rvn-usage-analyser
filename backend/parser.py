@@ -194,6 +194,11 @@ def parse_file(file_bytes, filename):
     else:
         df['_utc_start'] = pd.NaT
 
+    if 'activation_date' in col:
+        df['_activation'] = pd.to_datetime(df[col['activation_date']], errors='coerce', utc=True)
+    else:
+        df['_activation'] = pd.NaT
+
     if 'local_start' in col:
         df['_local_start'] = pd.to_datetime(df[col['local_start']], errors='coerce')
     else:
@@ -205,6 +210,7 @@ def parse_file(file_bytes, filename):
         'from': valid_dates.min().strftime('%d %b %Y %H:%M UTC') if len(valid_dates) else 'Unknown',
         'to': valid_dates.max().strftime('%d %b %Y %H:%M UTC') if len(valid_dates) else 'Unknown',
     }
+    dataset_end = valid_dates.max() if len(valid_dates) else None
 
     # Trend bin edges shared across all stories so sparklines are comparable.
     # <24h → hourly bins (up to 24); ≥24h → daily bins capped at 14.
@@ -274,6 +280,20 @@ def parse_file(file_bytes, filename):
         else:
             trend = []
 
+        # Longevity = % of airings OUTSIDE the first 24h after publish.
+        # Higher = story had legs. Only meaningful if publish time is known
+        # AND publish was ≥24h before the dataset's end, otherwise the
+        # first-24h window is mechanically truncated and the figure misleads.
+        longevity_pct = None
+        publish_time = grp['_activation'].dropna().min() if '_activation' in grp.columns else pd.NaT
+        airing_times = grp['_utc_start'].dropna()
+        if pd.notna(publish_time) and len(airing_times) and dataset_end is not None:
+            window_end = publish_time + pd.Timedelta(hours=24)
+            if window_end <= dataset_end:
+                first_24h = (airing_times <= window_end).sum()
+                if airings > 0:
+                    longevity_pct = round(100 * (1 - first_24h / airings))
+
         stories.append({
             'slug': slug,
             'headline': headline,
@@ -294,6 +314,8 @@ def parse_file(file_bytes, filename):
             'all_markets': all_markets,
             'regions': regions,
             'trend': trend,
+            'longevity': longevity_pct,
+            'publish_time': publish_time.strftime('%d %b %Y %H:%M') if pd.notna(publish_time) else '',
         })
 
     # Sort by airings descending
