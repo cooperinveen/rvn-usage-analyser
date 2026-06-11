@@ -468,27 +468,12 @@ function renderModalBody(s) {
             </div>
             <div class="modal-pagination" id="modal-channel-pagination"></div>
         </div>
-
-        <!-- 4. Country Breakdown (paginated) -->
-        <div class="modal-section">
-            <p class="modal-section-title">Country Breakdown (${s.all_markets.length} countr${s.all_markets.length === 1 ? 'y' : 'ies'})</p>
-            <div class="modal-table-wrap">
-                <table class="modal-table">
-                    <thead><tr><th>Country</th><th>Airings</th></tr></thead>
-                    <tbody id="modal-country-tbody"></tbody>
-                </table>
-            </div>
-            <div class="modal-pagination" id="modal-country-pagination"></div>
-        </div>
     `;
 
-    // Wire both paginated tables
+    // Wire the paginated channel table
     state.modalChannels = s.all_channels;
     state.modalChannelPage = 1;
-    state.modalCountries = s.all_markets;
-    state.modalCountryPage = 1;
     renderModalChannelPage();
-    renderModalCountryPage();
 }
 
 const MODAL_PAGE_SIZE = 10;
@@ -510,23 +495,6 @@ function renderModalChannelPage() {
         </tr>`).join('');
 
     renderModalPagination('modal-channel-pagination', 'channel', page, pages, start, total, 'channels');
-}
-
-function renderModalCountryPage() {
-    const all = state.modalCountries || [];
-    const total = all.length;
-    const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
-    const page = Math.min(state.modalCountryPage || 1, pages);
-    const start = (page - 1) * MODAL_PAGE_SIZE;
-    const slice = all.slice(start, start + MODAL_PAGE_SIZE);
-
-    document.getElementById('modal-country-tbody').innerHTML = slice.map(m => `
-        <tr>
-            <td>${escHtml(m.market)}</td>
-            <td class="num">${m.airings}</td>
-        </tr>`).join('');
-
-    renderModalPagination('modal-country-pagination', 'country', page, pages, start, total, 'countries');
 }
 
 function renderModalPagination(elId, kind, page, pages, start, total, noun) {
@@ -555,21 +523,12 @@ $('top-stories-list').addEventListener('click', e => {
 modalBody.addEventListener('click', e => {
     const btn = e.target.closest('[data-page-action]');
     if (!btn) return;
-    const kind = btn.dataset.pageKind;
-    const action = btn.dataset.pageAction;
-    if (kind === 'channel') {
-        const total = (state.modalChannels || []).length;
-        const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
-        if (action === 'next' && state.modalChannelPage < pages) state.modalChannelPage++;
-        if (action === 'prev' && state.modalChannelPage > 1) state.modalChannelPage--;
-        renderModalChannelPage();
-    } else if (kind === 'country') {
-        const total = (state.modalCountries || []).length;
-        const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
-        if (action === 'next' && state.modalCountryPage < pages) state.modalCountryPage++;
-        if (action === 'prev' && state.modalCountryPage > 1) state.modalCountryPage--;
-        renderModalCountryPage();
-    }
+    if (btn.dataset.pageKind !== 'channel') return;
+    const total = (state.modalChannels || []).length;
+    const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
+    if (btn.dataset.pageAction === 'next' && state.modalChannelPage < pages) state.modalChannelPage++;
+    if (btn.dataset.pageAction === 'prev' && state.modalChannelPage > 1) state.modalChannelPage--;
+    renderModalChannelPage();
 });
 
 // Close modal

@@ -8,7 +8,7 @@ from collections import defaultdict
 COL_ALIASES = {
     'channel': ['Channel: Name', 'channel_name', 'Channel Name'],
     'market': ['Market: Name', 'market_name', 'Market Name'],
-    'region': ['Region: Name', 'Region Name', 'channelRegionName'],
+    'region': ['Channel: Region Name', 'Channel: Region name', 'channelRegionName', 'Region: Name', 'Region Name'],
     'utc_start': ['UTC detection start', 'hitUtcDetectionStart', 'detection_start_date_time_utc'],
     'local_start': ['Local detection start', 'hitLocalDetectionStart', 'detection_start_date_time_local'],
     'story_id': ['Story ID', 'itemid', 'Item ID'],
@@ -173,7 +173,15 @@ def parse_file(file_bytes, filename):
     df['_headline'] = df[col['headline']].fillna('').astype(str).str.strip() if 'headline' in col else ''
     df['_channel'] = df[col['channel']].fillna('Unknown').astype(str).str.strip()
     df['_market'] = df[col['market']].fillna('Unknown').astype(str).str.strip() if 'market' in col else 'Unknown'
-    # Region derived from slug (story origin), not broadcast region column
+    # True country = Channel: Region Name (e.g. "USA", "GBR", "Spain"). Market: Name mixes
+    # countries with US DMA city-names (Atlanta, Phoenix, etc.), so it's not a country.
+    # Fall back to _market when the export lacks Channel: Region Name.
+    if 'region' in col:
+        df['_country'] = df[col['region']].fillna('').astype(str).str.strip()
+        df['_country'] = df['_country'].where(df['_country'] != '', df['_market'])
+    else:
+        df['_country'] = df['_market']
+    # Story-origin region derived from slug, not from broadcast region column
 
     # Parse time columns
     df['_actual_secs'] = df[col['actual_length']].apply(_td_to_seconds) if 'actual_length' in col else 0
@@ -224,7 +232,7 @@ def parse_file(file_bytes, filename):
         headline = headline_series.iloc[0] if len(headline_series) else ''
         airings = len(grp)
         channels = grp['_channel'].nunique()
-        countries = grp['_market'].nunique()
+        countries = grp['_country'].nunique()
         total_air_secs = grp['_actual_secs'].sum()
         avg_clip_secs = grp['_actual_secs'].mean()
         asset_secs = grp['_asset_secs'].iloc[0] if grp['_asset_secs'].iloc[0] > 0 else 0
@@ -237,7 +245,7 @@ def parse_file(file_bytes, filename):
         ch_agg = grp.groupby('_channel').agg(
             airings=('_actual_secs', 'count'),
             air_secs=('_actual_secs', 'sum'),
-            country=('_market', 'first')
+            country=('_country', 'first')
         ).reset_index().sort_values('airings', ascending=False)
         all_channels = ch_agg.to_dict('records')
         for c in all_channels:
@@ -245,11 +253,11 @@ def parse_file(file_bytes, filename):
             c['air_time'] = _seconds_to_hms(c['air_secs'])
             del c['air_secs']
 
-        # All markets for this story
-        mkt_counts = grp.groupby('_market')['_actual_secs'].count().reset_index()
-        mkt_counts.columns = ['market', 'airings']
-        mkt_counts = mkt_counts.sort_values('airings', ascending=False)
-        all_markets = mkt_counts.to_dict('records')
+        # All countries for this story (kept under all_markets for legacy compatibility)
+        ctry_counts = grp.groupby('_country')['_actual_secs'].count().reset_index()
+        ctry_counts.columns = ['market', 'airings']
+        ctry_counts = ctry_counts.sort_values('airings', ascending=False)
+        all_markets = ctry_counts.to_dict('records')
 
         # Regions derived from the story slug (not broadcast location); can be multiple
         regions = {r: 1 for r in _region_from_slug(slug)}
@@ -295,7 +303,7 @@ def parse_file(file_bytes, filename):
     total_airings = len(df)
     total_stories = len(stories)
     total_channels = df['_channel'].nunique()
-    total_countries = df['_market'].nunique()
+    total_countries = df['_country'].nunique()
     total_air_secs = df['_actual_secs'].sum()
 
     # Top 10 channels globally
@@ -307,24 +315,24 @@ def parse_file(file_bytes, filename):
         .head(10)
     )
     top_channels_global['air_time'] = top_channels_global['air_secs'].apply(_seconds_to_hms)
-    # Add country for each channel
-    ch_country = df.groupby('_channel')['_market'].first().to_dict()
+    # Add country for each channel (Channel: Region Name, falls back to market)
+    ch_country = df.groupby('_channel')['_country'].first().to_dict()
     top_channels_global['country'] = top_channels_global['_channel'].map(ch_country)
     top_channels_list = top_channels_global[['_channel', 'airings', 'air_time', 'country']].rename(
         columns={'_channel': 'channel'}
     ).to_dict('records')
 
-    # Top 10 markets globally
+    # Top 10 countries globally (kept under top_markets for legacy compatibility)
     top_markets_global = (
-        df.groupby('_market')['_actual_secs']
+        df.groupby('_country')['_actual_secs']
         .agg(airings='count', air_secs='sum')
         .reset_index()
         .sort_values('airings', ascending=False)
         .head(10)
     )
     top_markets_global['air_time'] = top_markets_global['air_secs'].apply(_seconds_to_hms)
-    top_markets_list = top_markets_global[['_market', 'airings', 'air_time']].rename(
-        columns={'_market': 'market'}
+    top_markets_list = top_markets_global[['_country', 'airings', 'air_time']].rename(
+        columns={'_country': 'market'}
     ).to_dict('records')
 
     # Zero-airing stories (if any — only possible if "include all assets" was ticked)
@@ -381,7 +389,7 @@ def generate_export(stories):
         'Story Slug', 'Story ID', 'Airings', 'Channels', 'Countries',
         'Total Air Time', 'Avg Clip Used', 'Original Length',
         'Days in Rotation', 'First Aired', 'Last Aired',
-        'Top Channel', 'Top Market'
+        'Top Channel', 'Top Country'
     ]
 
     # Header row styling
