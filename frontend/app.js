@@ -418,12 +418,6 @@ function renderModalBody(s) {
 
     const trendChart = renderTrendChart(s.trend, state.trendLabels, state.trendUnit);
 
-    const countryRows = s.all_markets.map(m => `
-        <tr>
-            <td>${escHtml(m.market)}</td>
-            <td class="num">${m.airings}</td>
-        </tr>`).join('');
-
     modalBody.innerHTML = `
         <!-- 1. Headline Stats -->
         <div class="modal-section">
@@ -460,7 +454,7 @@ function renderModalBody(s) {
         ${trendChart ? `
         <div class="modal-section">
             <p class="modal-section-title">Airings over time</p>
-            ${trendChart}
+            <div class="trend-chart-wrap">${trendChart}</div>
         </div>` : ''}
 
         <!-- 3. Channel Breakdown (paginated) -->
@@ -475,32 +469,37 @@ function renderModalBody(s) {
             <div class="modal-pagination" id="modal-channel-pagination"></div>
         </div>
 
-        <!-- 4. Country Breakdown -->
+        <!-- 4. Country Breakdown (paginated) -->
         <div class="modal-section">
             <p class="modal-section-title">Country Breakdown (${s.all_markets.length} countr${s.all_markets.length === 1 ? 'y' : 'ies'})</p>
             <div class="modal-table-wrap">
                 <table class="modal-table">
                     <thead><tr><th>Country</th><th>Airings</th></tr></thead>
-                    <tbody>${countryRows}</tbody>
+                    <tbody id="modal-country-tbody"></tbody>
                 </table>
             </div>
+            <div class="modal-pagination" id="modal-country-pagination"></div>
         </div>
     `;
 
-    // Wire the paginated channel table
+    // Wire both paginated tables
     state.modalChannels = s.all_channels;
     state.modalChannelPage = 1;
+    state.modalCountries = s.all_markets;
+    state.modalCountryPage = 1;
     renderModalChannelPage();
+    renderModalCountryPage();
 }
 
+const MODAL_PAGE_SIZE = 10;
+
 function renderModalChannelPage() {
-    const PAGE_SIZE = 20;
     const all = state.modalChannels || [];
     const total = all.length;
-    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
     const page = Math.min(state.modalChannelPage || 1, pages);
-    const start = (page - 1) * PAGE_SIZE;
-    const slice = all.slice(start, start + PAGE_SIZE);
+    const start = (page - 1) * MODAL_PAGE_SIZE;
+    const slice = all.slice(start, start + MODAL_PAGE_SIZE);
 
     document.getElementById('modal-channel-tbody').innerHTML = slice.map(c => `
         <tr>
@@ -510,14 +509,35 @@ function renderModalChannelPage() {
             <td class="num">${escHtml(c.air_time)}</td>
         </tr>`).join('');
 
-    const pag = document.getElementById('modal-channel-pagination');
+    renderModalPagination('modal-channel-pagination', 'channel', page, pages, start, total, 'channels');
+}
+
+function renderModalCountryPage() {
+    const all = state.modalCountries || [];
+    const total = all.length;
+    const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
+    const page = Math.min(state.modalCountryPage || 1, pages);
+    const start = (page - 1) * MODAL_PAGE_SIZE;
+    const slice = all.slice(start, start + MODAL_PAGE_SIZE);
+
+    document.getElementById('modal-country-tbody').innerHTML = slice.map(m => `
+        <tr>
+            <td>${escHtml(m.market)}</td>
+            <td class="num">${m.airings}</td>
+        </tr>`).join('');
+
+    renderModalPagination('modal-country-pagination', 'country', page, pages, start, total, 'countries');
+}
+
+function renderModalPagination(elId, kind, page, pages, start, total, noun) {
+    const pag = document.getElementById(elId);
     if (pages <= 1) { pag.innerHTML = ''; return; }
     const from = start + 1;
-    const to = Math.min(start + PAGE_SIZE, total);
+    const to = Math.min(start + MODAL_PAGE_SIZE, total);
     pag.innerHTML = `
-        <button class="btn btn-outline btn-sm" data-page-action="prev" ${page === 1 ? 'disabled' : ''}>← Previous</button>
-        <span class="page-info">Showing ${from}–${to} of ${total} channels · Page ${page} of ${pages}</span>
-        <button class="btn btn-outline btn-sm" data-page-action="next" ${page === pages ? 'disabled' : ''}>Next →</button>
+        <button class="btn btn-outline btn-sm" data-page-kind="${kind}" data-page-action="prev" ${page === 1 ? 'disabled' : ''}>← Previous</button>
+        <span class="page-info">Showing ${from}–${to} of ${total} ${noun} · Page ${page} of ${pages}</span>
+        <button class="btn btn-outline btn-sm" data-page-kind="${kind}" data-page-action="next" ${page === pages ? 'disabled' : ''}>Next →</button>
     `;
 }
 
@@ -531,15 +551,25 @@ $('top-stories-list').addEventListener('click', e => {
     if (item) openStoryModal(item.dataset.slug);
 });
 
-// Modal channel pagination — delegated so it survives re-renders
+// Modal table pagination — delegated so it survives re-renders
 modalBody.addEventListener('click', e => {
     const btn = e.target.closest('[data-page-action]');
     if (!btn) return;
-    const total = (state.modalChannels || []).length;
-    const pages = Math.max(1, Math.ceil(total / 20));
-    if (btn.dataset.pageAction === 'next' && state.modalChannelPage < pages) state.modalChannelPage++;
-    if (btn.dataset.pageAction === 'prev' && state.modalChannelPage > 1) state.modalChannelPage--;
-    renderModalChannelPage();
+    const kind = btn.dataset.pageKind;
+    const action = btn.dataset.pageAction;
+    if (kind === 'channel') {
+        const total = (state.modalChannels || []).length;
+        const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
+        if (action === 'next' && state.modalChannelPage < pages) state.modalChannelPage++;
+        if (action === 'prev' && state.modalChannelPage > 1) state.modalChannelPage--;
+        renderModalChannelPage();
+    } else if (kind === 'country') {
+        const total = (state.modalCountries || []).length;
+        const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
+        if (action === 'next' && state.modalCountryPage < pages) state.modalCountryPage++;
+        if (action === 'prev' && state.modalCountryPage > 1) state.modalCountryPage--;
+        renderModalCountryPage();
+    }
 });
 
 // Close modal
@@ -624,48 +654,47 @@ function slugDisplay(slug) {
 
 function renderTrendChart(counts, labels, unit) {
     if (!counts || counts.length === 0) return '';
-    const w = 720, h = 180;
-    const padL = 32, padR = 8, padT = 8, padB = 28;
+    const w = 480, h = 150;
+    const padL = 28, padR = 6, padT = 14, padB = 26;
     const chartW = w - padL - padR;
     const chartH = h - padT - padB;
-    const gap = 6;
-    const barW = Math.max(2, (chartW - gap * (counts.length - 1)) / counts.length);
+    // Tighter bars: 60% of slot is bar, 40% is gap. Slim and editorial.
+    const slot = chartW / counts.length;
+    const barW = Math.max(3, slot * 0.6);
     const peak = Math.max(...counts, 1);
 
-    // Y gridlines at 0, 50%, 100%
-    const gridY = [0, 0.5, 1].map(frac => {
-        const y = padT + chartH - frac * chartH;
-        const v = Math.round(frac * peak);
-        return `
-            <line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="var(--tr-border)" stroke-width="1"></line>
-            <text x="${padL - 6}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--tr-text-light)">${v}</text>
-        `;
-    }).join('');
+    // Single baseline + a faint peak gridline. No mid-line clutter.
+    const baselineY = padT + chartH;
+    const peakY = padT;
+    const axis = `
+        <line x1="${padL}" y1="${baselineY}" x2="${w - padR}" y2="${baselineY}" stroke="var(--tr-border)" stroke-width="1"></line>
+        <line x1="${padL}" y1="${peakY}" x2="${w - padR}" y2="${peakY}" stroke="var(--tr-border)" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"></line>
+        <text x="${padL - 6}" y="${baselineY + 3}" text-anchor="end" font-size="10" fill="var(--tr-text-light)">0</text>
+        <text x="${padL - 6}" y="${peakY + 3}" text-anchor="end" font-size="10" fill="var(--tr-text-light)">${peak}</text>
+    `;
 
     const bars = counts.map((c, i) => {
         const barH = c === 0 ? 0 : Math.max(2, Math.round(c / peak * chartH));
-        const x = padL + i * (barW + gap);
-        const y = padT + chartH - barH;
+        const x = padL + i * slot + (slot - barW) / 2;
+        const y = baselineY - barH;
         const label = labels?.[i] ? `${labels[i]}: ${c} airing${c === 1 ? '' : 's'}` : `${c} airing${c === 1 ? '' : 's'}`;
-        const countLabel = c > 0 ? `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" font-size="10" fill="var(--tr-text)">${c}</text>` : '';
         return `
             <rect class="trend-bar" x="${x.toFixed(2)}" y="${y}" width="${barW.toFixed(2)}" height="${barH}">
                 <title>${escHtml(label)}</title>
             </rect>
-            ${countLabel}
         `;
     }).join('');
 
     // X axis labels — show every nth label if crowded
-    const labelStep = Math.max(1, Math.ceil(counts.length / 10));
+    const labelStep = Math.max(1, Math.ceil(counts.length / 8));
     const xLabels = (labels || []).map((lbl, i) => {
         if (i % labelStep !== 0 && i !== counts.length - 1) return '';
-        const x = padL + i * (barW + gap) + barW / 2;
-        return `<text x="${x.toFixed(2)}" y="${h - 8}" text-anchor="middle" font-size="11" fill="var(--tr-text-light)">${escHtml(lbl)}</text>`;
+        const x = padL + i * slot + slot / 2;
+        return `<text x="${x.toFixed(2)}" y="${h - 8}" text-anchor="middle" font-size="10" fill="var(--tr-text-light)">${escHtml(lbl)}</text>`;
     }).join('');
 
-    return `<svg class="trend-chart" viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="xMidYMid meet" aria-label="Airings per ${unit}">
-        ${gridY}
+    return `<svg class="trend-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" aria-label="Airings per ${unit}">
+        ${axis}
         ${bars}
         ${xLabels}
     </svg>`;

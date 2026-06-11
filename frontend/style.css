@@ -301,7 +301,17 @@ tbody tr:last-child td { border-bottom: none; }
 .sparkline .spark-bar { fill: var(--tr-orange); }
 .sparkline .spark-bar-empty { fill: var(--tr-border); }
 
-.trend-chart { display: block; max-width: 100%; height: auto; }
+.trend-chart-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+}
+.trend-chart {
+    display: block;
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+}
 .trend-chart .trend-bar { fill: var(--tr-orange); }
 .trend-chart .trend-bar:hover { fill: var(--tr-dark-amber); }
 
