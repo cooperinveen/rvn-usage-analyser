@@ -31,6 +31,7 @@ const searchClear = $('search-clear');
 const storyModal = $('story-modal');
 const modalSlug = $('modal-slug');
 const modalStoryId = $('modal-story-id');
+const modalAssetLength = $('modal-asset-length');
 const modalBody = $('modal-body');
 const headerStatus = $('header-status');
 const dataBadge = $('data-badge');
@@ -409,16 +410,13 @@ function openStoryModal(slug) {
 
     modalSlug.textContent = slug;
     modalStoryId.textContent = story.story_id || '';
+    modalAssetLength.textContent = story.asset_secs > 0 ? `Original story length · ${story.asset_length}` : '';
     storyModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     renderModalBody(story);
 }
 
 function renderModalBody(s) {
-    const assetCaption = s.asset_secs > 0
-        ? `Original story length: <strong>${escHtml(s.asset_length)}</strong>`
-        : '';
-
     const trendChart = renderTrendChart(s.trend, state.trendLabels, state.trendUnit);
 
     // Mini-panel: top channel, top country, longevity
@@ -474,7 +472,7 @@ function renderModalBody(s) {
                 <div class="modal-overview-chart">${miniPanel}</div>`}
             </div>
             <p style="font-size:12px; color:var(--tr-text-light); margin:14px 0 0">
-                ${assetCaption ? `${assetCaption} &nbsp;·&nbsp; ` : ''}First aired: <strong>${escHtml(s.first_seen)}</strong> &nbsp;·&nbsp; Last aired: <strong>${escHtml(s.last_seen)}</strong>
+                First aired: <strong>${escHtml(s.first_seen)}</strong>
             </p>
         </div>
 

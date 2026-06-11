@@ -502,6 +502,9 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
 .modal-title-wrap { display: flex; flex-direction: column; gap: 4px; }
 .modal-slug { font-size: 18px; font-weight: 700; color: var(--tr-racing-green); word-break: break-word; }
 .modal-story-id { font-size: 12px; color: var(--tr-text-light); font-family: monospace; }
+.modal-meta-row { display: flex; flex-wrap: wrap; align-items: baseline; }
+.modal-asset-length { font-size: 12px; color: var(--tr-text-light); }
+.modal-asset-length:not(:empty)::before { content: '·'; margin: 0 10px; color: var(--tr-border); }
 .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--tr-text-light); padding: 2px 6px; line-height: 1; flex-shrink: 0; }
 .modal-close:hover { color: var(--tr-text); }
 .modal-body { padding: 24px; }
