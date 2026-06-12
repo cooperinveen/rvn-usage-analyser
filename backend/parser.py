@@ -188,14 +188,23 @@ def parse_file(file_bytes, filename):
     df['_headline'] = df[col['headline']].fillna('').astype(str).str.strip() if 'headline' in col else ''
     df['_channel'] = df[col['channel']].fillna('Unknown').astype(str).str.strip()
     df['_market'] = df[col['market']].fillna('Unknown').astype(str).str.strip() if 'market' in col else 'Unknown'
-    # True country = Channel: Region Name (e.g. "USA", "GBR", "Spain"). Market: Name mixes
-    # countries with US DMA city-names (Atlanta, Phoenix, etc.), so it's not a country.
-    # Fall back to _market when the export lacks Channel: Region Name.
+    # Broadcast-destination country (used for per-story "countries reached" count and
+    # for the country-mix breakdown). Falls back to _market if region is missing for
+    # an individual airing — reach-counting tolerates some noise.
     if 'region' in col:
         df['_country'] = df[col['region']].fillna('').astype(str).str.strip()
         df['_country'] = df['_country'].where(df['_country'] != '', df['_market'])
     else:
         df['_country'] = df['_market']
+
+    # Channel's HOME country — must come strictly from Channel: Region Name. Falling
+    # back to _market would mislabel channels (e.g. "France 24 English" detected in
+    # an Italian DMA → labelled Italy). Empty string when truly missing so callers
+    # render "Unknown" rather than guess.
+    if 'region' in col:
+        df['_channel_country'] = df[col['region']].fillna('').astype(str).str.strip()
+    else:
+        df['_channel_country'] = ''
     # Story-origin region derived from slug, not from broadcast region column
 
     # Parse time columns
@@ -243,6 +252,15 @@ def parse_file(file_bytes, filename):
             trend_edges = pd.date_range(valid_dates.min().floor('D'), periods=n_bins + 1, freq='D', tz='UTC')
         trend_labels = [e.strftime('%d %b' if trend_unit == 'day' else '%H:%M') for e in trend_edges[:-1]]
 
+    # Channel → home country lookup, computed once and reused everywhere a
+    # channel needs to be labelled. Mode of non-empty Channel: Region Name,
+    # "Unknown" when truly missing. Avoids the row-order-dependent garbage
+    # the .iloc[0]/'first' approach produced.
+    def _channel_home_country(s):
+        non_empty = s[s != '']
+        return non_empty.mode().iloc[0] if len(non_empty) else 'Unknown'
+    channel_country_map = df.groupby('_channel')['_channel_country'].apply(_channel_home_country).to_dict()
+
     # --- Aggregate per story ---
     stories = []
     grouped = df.groupby('_slug', sort=False)
@@ -262,15 +280,16 @@ def parse_file(file_bytes, filename):
         last_seen = grp['_utc_start'].max()
         days_in_rotation = max(1, (last_seen - first_seen).days + 1) if pd.notna(first_seen) and pd.notna(last_seen) else 1
 
-        # All channels for this story (used in modal channel breakdown)
+        # All channels for this story (used in modal channel breakdown).
+        # Channel's home country comes from the precomputed map, not the row data.
         ch_agg = grp.groupby('_channel').agg(
             airings=('_actual_secs', 'count'),
             air_secs=('_actual_secs', 'sum'),
-            country=('_country', 'first')
         ).reset_index().sort_values('airings', ascending=False)
         all_channels = ch_agg.to_dict('records')
         for c in all_channels:
             c['channel'] = c.pop('_channel')
+            c['country'] = channel_country_map.get(c['channel'], 'Unknown')
             c['air_time'] = _seconds_to_hms(c['air_secs'])
             del c['air_secs']
 
@@ -344,7 +363,7 @@ def parse_file(file_bytes, filename):
     ch_grouped = df.groupby('_channel', sort=False)
 
     for chan, grp in ch_grouped:
-        country = grp['_country'].iloc[0] if len(grp) else ''
+        country = channel_country_map.get(chan, 'Unknown')
         ch_airings = len(grp)
         ch_stories = grp['_slug'].nunique()
         ch_air_secs = grp['_actual_secs'].sum()
@@ -429,9 +448,7 @@ def parse_file(file_bytes, filename):
         .head(10)
     )
     top_channels_global['air_time'] = top_channels_global['air_secs'].apply(_seconds_to_hms)
-    # Add country for each channel (Channel: Region Name, falls back to market)
-    ch_country = df.groupby('_channel')['_country'].first().to_dict()
-    top_channels_global['country'] = top_channels_global['_channel'].map(ch_country)
+    top_channels_global['country'] = top_channels_global['_channel'].map(channel_country_map)
     top_channels_list = top_channels_global[['_channel', 'airings', 'air_time', 'country']].rename(
         columns={'_channel': 'channel'}
     ).to_dict('records')
