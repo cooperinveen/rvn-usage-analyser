@@ -13,10 +13,13 @@ Teletrax monitors global TV broadcasts and detects when Reuters content airs. Th
 Upload a `.csv` or `.xlsx` export → get:
 
 - **Summary bar** — total stories, airings, channels, countries, air time for the period
-- **Story table** — one row per story, sortable by airings/channels/countries, with search and region/minimum-airings filters
-- **Story detail modal** — click any story to see full channel and country breakdowns
-- **Insights panel** — top 10 stories, channels, and countries at a glance
-- **Export** — download the aggregated summary as a clean Excel file
+- **Story table** — one row per story, sortable by airings/channels/countries/longevity/publish date, with search and region/minimum-airings filters. Each row shows an inline trend sparkline of airings per day across the dataset window.
+- **Longevity stat** — for each story whose publish date is ≥24h before the dataset's end, the percentage of airings that happened *after* the first 24 hours from publish. Higher = the story had legs and kept being aired; lower = bursty pickup that died. Producers sort by this to find stories worth a follow-up.
+- **Story detail modal** — click any row to see a full-size trend chart, six-card stats grid (airings, channels, countries, days in rotation, total air time, longevity), top channel / top country / average clip length, and a paginated channel breakdown.
+- **Insights panel** — top 10 stories, channels, and countries at a glance.
+- **Export** — download the aggregated summary as a clean Excel file.
+
+Stories are identified by the Reuters producer-style slug: first 4 digits of the story ID prepended to the slug (e.g. `5890-USA-SCREWWORM/`).
 
 Access is restricted to Thomson Reuters staff via Microsoft / Azure AD SSO.
 

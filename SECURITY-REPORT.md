@@ -122,7 +122,7 @@ None of this constitutes a vulnerability on its own. The Blob store ID is not a 
 | Cross-user data leak | ✅ Fixed — stateless export, no server-side state |
 | Security headers | ✅ Set — CSP, X-Frame-Options, nosniff, Referrer-Policy |
 | HSTS | ✅ Present — Vercel sets `strict-transport-security` by default |
-| Upload size cap | ✅ 20 MB enforced at Vercel Blob token level |
+| Upload size cap | ✅ 50 MB enforced at Vercel Blob token level |
 | Input validation | ✅ All JSON bodies guarded against non-dict input |
 | `BLOB_READ_WRITE_TOKEN` exposure | ✅ Never logged, never returned in any response |
 | Authentication | ✅ Azure AD SSO — domain-restricted to Thomson Reuters staff (added 2026-06-09) |
