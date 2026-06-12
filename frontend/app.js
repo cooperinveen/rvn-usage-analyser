@@ -14,8 +14,6 @@ const state = {
     chSortDir: 'desc',
     searchQuery: '',
     regionFilter: 'all',
-    minAirings: 1,
-    chMinAirings: 1,
     summary: null,
     topChannels: [],
     topMarkets: [],
@@ -164,12 +162,8 @@ function loadData(data) {
     state.chCurrentPage = 1;
     state.searchQuery = '';
     state.regionFilter = 'all';
-    state.minAirings = 1;
-    state.chMinAirings = 1;
     state.view = 'stories';
     searchInput.value = '';
-    $('min-airings-input').value = 1;
-    $('min-ch-airings-input').value = 1;
     setActivePill('all');
     setActiveView('stories');
 }
@@ -308,17 +302,6 @@ document.querySelectorAll('.filter-pill').forEach(pill => {
     });
 });
 
-$('min-airings-input').addEventListener('input', () => {
-    state.minAirings = parseInt($('min-airings-input').value) || 1;
-    state.currentPage = 1;
-    applyFilters();
-});
-
-$('min-ch-airings-input').addEventListener('input', () => {
-    state.chMinAirings = parseInt($('min-ch-airings-input').value) || 1;
-    state.chCurrentPage = 1;
-    applyChannelFilters();
-});
 
 function setActivePill(region) {
     document.querySelectorAll('.filter-pill').forEach(p => {
@@ -341,10 +324,6 @@ function applyFilters() {
         filtered = filtered.filter(s =>
             s.regions && s.regions[state.regionFilter] > 0
         );
-    }
-
-    if (state.minAirings > 1) {
-        filtered = filtered.filter(s => s.airings >= state.minAirings);
     }
 
     // Sort — nulls always last regardless of direction
@@ -466,10 +445,6 @@ function applyChannelFilters() {
             (c.channel && c.channel.toLowerCase().includes(q)) ||
             (c.country && c.country.toLowerCase().includes(q))
         );
-    }
-
-    if (state.chMinAirings > 1) {
-        filtered = filtered.filter(c => c.airings >= state.chMinAirings);
     }
 
     filtered = [...filtered].sort((a, b) => {
@@ -951,6 +926,45 @@ $('btn-export').addEventListener('click', async () => {
     } catch (err) {
         showToast('Export failed — please try again');
     }
+});
+
+// "Export top 25" — context-aware: dumps whatever's currently on screen
+// (filtered + sorted) capped to 25 rows. Same backend endpoint for both views.
+async function exportTopN(kind, rows, defaultName) {
+    const slice = rows.slice(0, 25);
+    if (slice.length === 0) {
+        showToast(`Nothing to export — try clearing your search.`);
+        return;
+    }
+    try {
+        const res = await fetch('/api/export-top', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind, rows: slice }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Export failed');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = defaultName;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`Downloading top ${slice.length} ${kind}…`);
+    } catch (err) {
+        showToast('Export failed — please try again');
+    }
+}
+
+$('btn-export-top-stories').addEventListener('click', () => {
+    exportTopN('stories', state.filteredStories, 'reuters-top-stories.xlsx');
+});
+$('btn-export-top-channels').addEventListener('click', () => {
+    exportTopN('channels', state.filteredChannels, 'reuters-top-channels.xlsx');
 });
 
 // ── Loading helpers ──────────────────────────────────────────────────────────

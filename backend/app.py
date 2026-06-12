@@ -4,7 +4,7 @@ import urllib.request
 from functools import wraps
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, Response, session, redirect
-from backend.parser import parse_file, generate_export
+from backend.parser import parse_file, generate_export, generate_top_export
 
 FRONTEND_DIR = str(Path(__file__).parent.parent / 'frontend')
 
@@ -223,6 +223,39 @@ def export_summary():
         xlsx_bytes,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={'Content-Disposition': 'attachment; filename="reuters-usage-summary.xlsx"'}
+    )
+
+
+@app.route('/api/export-top', methods=['POST'])
+@login_required
+def export_top():
+    """Top-N export — kind is 'stories' or 'channels', rows are already
+    filtered + sorted client-side. Server just transforms to XLSX."""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({'error': 'Invalid request body'}), 400
+
+    kind = body.get('kind')
+    rows = body.get('rows')
+    if kind not in ('stories', 'channels'):
+        return jsonify({'error': 'Invalid export kind'}), 400
+    if not isinstance(rows, list) or len(rows) == 0:
+        return jsonify({'error': 'No rows to export'}), 400
+
+    # Hard cap at 100 to keep payload and XLSX size bounded;
+    # the button asks for 25 but we leave headroom for future tweaks.
+    rows = rows[:100]
+
+    try:
+        xlsx_bytes = generate_top_export(kind, rows)
+    except Exception as e:
+        return jsonify({'error': f'Could not generate export: {str(e)}'}), 500
+
+    fname = f"reuters-top-{kind}.xlsx"
+    return Response(
+        xlsx_bytes,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename="{fname}"'}
     )
 
 

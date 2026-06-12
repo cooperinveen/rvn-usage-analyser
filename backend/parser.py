@@ -490,6 +490,118 @@ def _detect_header_rows(file_bytes):
     return 0
 
 
+def _slug_with_prefix(story):
+    """Reuters producer-style slug: first 4 digits of story_id + slug.
+    Mirrors the client's displaySlug() so exports match what's on screen."""
+    sid = str(story.get('story_id') or '')
+    slug = story.get('slug') or ''
+    if sid:
+        import re
+        m = re.match(r'^\d{1,4}', sid)
+        if m:
+            return f"{m.group(0)}-{slug}"
+    return slug
+
+
+def generate_top_export(kind, rows, title=None):
+    """Top-N export — schema depends on `kind`. Used by the contextual
+    "Export top 25" button: whatever's on screen, sorted and filtered,
+    lands in the spreadsheet in the same order."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    if kind == 'channels':
+        ws.title = title or "Top Channels"
+        headers = [
+            'Channel', 'Country', 'Airings', 'Stories Aired',
+            'Total Air Time', 'Avg Clip Used', 'Days Active',
+            'First Seen', 'Last Seen', 'Top Story',
+        ]
+        col_widths = [30, 18, 10, 14, 16, 14, 12, 20, 20, 40]
+
+        def row_for(c):
+            top_story = (c.get('all_stories') or [{}])[0]
+            top_slug = ''
+            if top_story.get('slug'):
+                # Reconstruct prefixed slug from story_id + slug like the UI does
+                top_slug = _slug_with_prefix(top_story)
+                if top_story.get('airings'):
+                    top_slug = f"{top_slug} ({top_story['airings']} airings)"
+            return [
+                c.get('channel', ''),
+                c.get('country', ''),
+                c.get('airings', 0),
+                c.get('stories', 0),
+                c.get('total_air_time', ''),
+                c.get('avg_clip', ''),
+                c.get('days_active', 0),
+                c.get('first_seen', ''),
+                c.get('last_seen', ''),
+                top_slug,
+            ]
+    else:
+        ws.title = title or "Top Stories"
+        headers = [
+            'Story Slug', 'Headline', 'Airings', 'Channels', 'Countries',
+            'Total Air Time', 'Avg Clip Used', 'Longevity', 'Date Published',
+            'Days in Rotation', 'First Aired', 'Top Channel', 'Top Country',
+        ]
+        col_widths = [30, 50, 10, 10, 12, 16, 14, 12, 20, 12, 20, 25, 20]
+
+        def row_for(s):
+            top_ch = ''
+            if s.get('all_channels'):
+                first = s['all_channels'][0]
+                top_ch = first.get('channel', '')
+            top_mkt = s['all_markets'][0]['market'] if s.get('all_markets') else ''
+            longevity = s.get('longevity')
+            longevity_str = f"{longevity}%" if longevity is not None else ''
+            return [
+                _slug_with_prefix(s),
+                s.get('headline', ''),
+                s.get('airings', 0),
+                s.get('channels', 0),
+                s.get('countries', 0),
+                s.get('total_air_time', ''),
+                s.get('avg_clip', ''),
+                longevity_str,
+                s.get('publish_time', ''),
+                s.get('days_in_rotation', 0),
+                s.get('first_seen', ''),
+                top_ch,
+                top_mkt,
+            ]
+
+    header_fill = PatternFill(start_color='123015', end_color='123015', fill_type='solid')
+    header_font = Font(color='FFFFFF', bold=True, name='Calibri', size=11)
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[1].height = 20
+
+    for row_idx, item in enumerate(rows, 2):
+        for col_idx, value in enumerate(row_for(item), 1):
+            ws.cell(row=row_idx, column=col_idx, value=value)
+        if row_idx % 2 == 0:
+            light_fill = PatternFill(start_color='F8F9FA', end_color='F8F9FA', fill_type='solid')
+            for col_idx in range(1, len(headers) + 1):
+                ws.cell(row=row_idx, column=col_idx).fill = light_fill
+
+    for col_idx, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out.getvalue()
+
+
 def generate_export(stories):
     """Generate a clean summary XLSX for download."""
     import openpyxl

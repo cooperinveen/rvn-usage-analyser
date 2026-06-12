@@ -143,17 +143,25 @@
                     <button class="filter-pill" data-region="Africa">Africa</button>
                 </div>
                 <div class="filter-right">
-                    <label class="filter-label" for="min-airings-input">Min airings:</label>
-                    <input type="number" id="min-airings-input" class="min-airings-input" value="1" min="1" max="9999">
                     <span class="results-count" id="results-count"></span>
+                    <button class="btn btn-outline btn-sm" id="btn-export-top-stories" title="Download an Excel of the top 25 rows currently on screen, in the order you see them">
+                        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:4px">
+                            <path d="M8 2v9"/><path d="M4 7l4 4 4-4"/><path d="M3 14h10"/>
+                        </svg>
+                        Export top 25
+                    </button>
                 </div>
             </div>
 
             <div class="filter-row" id="filter-row-channels" style="display:none">
                 <div class="filter-right" style="margin-left:0; width:100%; justify-content:flex-end">
-                    <label class="filter-label" for="min-ch-airings-input">Min airings:</label>
-                    <input type="number" id="min-ch-airings-input" class="min-airings-input" value="1" min="1" max="9999">
                     <span class="results-count" id="ch-results-count"></span>
+                    <button class="btn btn-outline btn-sm" id="btn-export-top-channels" title="Download an Excel of the top 25 channels currently on screen, in the order you see them">
+                        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:4px">
+                            <path d="M8 2v9"/><path d="M4 7l4 4 4-4"/><path d="M3 14h10"/>
+                        </svg>
+                        Export top 25
+                    </button>
                 </div>
             </div>
 
