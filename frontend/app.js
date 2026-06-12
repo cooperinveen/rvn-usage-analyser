@@ -993,7 +993,6 @@ document.querySelectorAll('.export-split').forEach(split => {
         const n = parseInt(item.dataset.count, 10) || 25;
         setCount(n);
         menu.hidden = true;
-        exportTopN(kind, n);
     });
 });
 
