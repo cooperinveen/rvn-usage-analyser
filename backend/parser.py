@@ -68,6 +68,21 @@ def _seconds_to_hms(seconds):
         return f"{h}h {m}m"
 
 
+def _country_from_slug(slug):
+    """First hyphen-separated rubric token of the slug — usually a country
+    (USA, IRAN, JAPAN), sometimes a region (MIDEAST, EU) or topic
+    (SOCCER, BUSINESS). Returns the raw token so producers see what they
+    expect from the editorial slug. Falls back to 'Other'."""
+    if not slug:
+        return 'Other'
+    import re
+    s = str(slug).upper()
+    s = re.sub(r'^(ADVISORY|CORRECTION)[-\s]+', '', s).strip()
+    s = re.sub(r'^\d+[A-Z]{0,4}\s+', '', s)
+    tokens = [t.strip() for t in s.split('/')[0].split('-') if t.strip()]
+    return tokens[0] if tokens else 'Other'
+
+
 def _region_from_slug(slug):
     """Derive editorial regions from slug (e.g. USA-CHINA/TARIFFS → {Americas, Asia Pacific}).
     Returns a set — stories can belong to multiple regions."""
@@ -352,6 +367,21 @@ def parse_file(file_bytes, filename):
             row['air_time'] = _seconds_to_hms(row['air_secs'])
             del row['air_secs']
 
+        # Story-origin country mix for this channel (airings-weighted).
+        # Pulled from the slug's first rubric token, so producers see the
+        # same country labels they use editorially (USA, IRAN, JAPAN, etc).
+        mix_counts = defaultdict(int)
+        for row in all_stories:
+            country = _country_from_slug(row['slug'])
+            mix_counts[country] += int(row['airings'])
+        mix_sorted = sorted(mix_counts.items(), key=lambda kv: kv[1], reverse=True)
+        # Top 8 + Other so the pie stays readable.
+        if len(mix_sorted) > 8:
+            top = mix_sorted[:8]
+            other_total = sum(v for _, v in mix_sorted[8:])
+            mix_sorted = top + [('Other', other_total)]
+        story_country_mix = [{'country': k, 'airings': v} for k, v in mix_sorted]
+
         # Channel trend uses the same shared bin edges as stories — comparable sparklines.
         if len(trend_edges):
             ts = grp['_utc_start'].dropna()
@@ -377,6 +407,7 @@ def parse_file(file_bytes, filename):
             'last_seen': last_seen.strftime('%d %b %Y %H:%M') if pd.notna(last_seen) else '',
             'days_active': int(days_active),
             'all_stories': all_stories,
+            'story_country_mix': story_country_mix,
             'trend': ch_trend,
         })
 

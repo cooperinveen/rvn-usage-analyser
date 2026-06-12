@@ -772,6 +772,7 @@ channelModal.addEventListener('click', e => { if (e.target === channelModal) clo
 function renderChannelModalBody(c) {
     const trendChart = renderTrendChart(c.trend, state.trendLabels, state.trendUnit);
     const topStory = c.all_stories?.[0];
+    const pie = renderCountryPie(c.story_country_mix);
 
     const miniPanel = `
         <ul class="modal-mini-panel">
@@ -781,28 +782,22 @@ function renderChannelModalBody(c) {
         </ul>
     `;
 
+    const summaryCaption = `
+        <p class="modal-summary-caption">
+            <strong>${c.airings.toLocaleString()}</strong> airings of
+            <strong>${c.stories.toLocaleString()}</strong> stories over
+            <strong>${c.days_active}</strong> day${c.days_active === 1 ? '' : 's'}
+            (<strong>${escHtml(c.total_air_time)}</strong> total air time)
+        </p>
+    `;
+
     chModalBody.innerHTML = `
         <div class="modal-section">
             <div class="modal-overview">
                 <div class="modal-overview-stats">
-                    <div class="stats-grid stats-grid-compact">
-                        <div class="stat-card">
-                            <span class="stat-card-value">${c.airings.toLocaleString()}</span>
-                            <span class="stat-card-label">Airings</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-card-value">${c.stories.toLocaleString()}</span>
-                            <span class="stat-card-label">Stories aired</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-card-value">${c.days_active}</span>
-                            <span class="stat-card-label">Days active</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-card-value">${escHtml(c.total_air_time)}</span>
-                            <span class="stat-card-label">Total air time</span>
-                        </div>
-                    </div>
+                    ${summaryCaption}
+                    <h4 class="pie-title">Story origins by airings</h4>
+                    ${pie || '<p class="pie-empty">No country data available.</p>'}
                 </div>
                 ${trendChart ? `
                 <div class="modal-overview-chart">
@@ -827,6 +822,78 @@ function renderChannelModalBody(c) {
     state.chModalStories = c.all_stories || [];
     state.chModalStoryPage = 1;
     renderChannelModalStoryPage();
+}
+
+// Slug-origin palette tuned to the Reuters brand: orange anchor, racing-green,
+// then editorial supporting tones. "Other" always renders muted grey at the end.
+const PIE_PALETTE = [
+    '#D64000',  // TR orange
+    '#123015',  // Racing green
+    '#0874E3',  // Dark sky
+    '#E9B045',  // Dark gold
+    '#7A1C1C',  // Deep red
+    '#3F7F44',  // Mid green
+    '#D4792A',  // Dark amber
+    '#5A4A99',  // Muted purple
+];
+const PIE_OTHER = '#9aa2a8';
+
+function renderCountryPie(mix) {
+    if (!mix || mix.length === 0) return '';
+    const total = mix.reduce((s, m) => s + m.airings, 0);
+    if (total === 0) return '';
+
+    const r = 78, cx = 90, cy = 90;
+    let acc = 0;
+    const slices = mix.map((m, i) => {
+        const frac = m.airings / total;
+        const start = acc;
+        const end = acc + frac;
+        acc = end;
+        // Single-slice case: render a full circle instead of a degenerate arc.
+        if (frac >= 0.9999) {
+            return { path: `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.001} ${cy - r} Z`, ...m, frac, color: colorFor(m, i, mix.length) };
+        }
+        const a0 = start * 2 * Math.PI - Math.PI / 2;
+        const a1 = end * 2 * Math.PI - Math.PI / 2;
+        const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+        const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+        const large = frac > 0.5 ? 1 : 0;
+        return {
+            path: `M ${cx} ${cy} L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`,
+            ...m,
+            frac,
+            color: colorFor(m, i, mix.length),
+        };
+    });
+
+    const paths = slices.map(s => `
+        <path d="${s.path}" fill="${s.color}" stroke="#fff" stroke-width="1.5">
+            <title>${escHtml(s.country)}: ${s.airings.toLocaleString()} airings (${Math.round(s.frac * 100)}%)</title>
+        </path>
+    `).join('');
+
+    const legend = slices.map(s => `
+        <li>
+            <span class="pie-swatch" style="background:${s.color}"></span>
+            <span class="pie-country">${escHtml(s.country)}</span>
+            <span class="pie-pct">${Math.round(s.frac * 100)}%</span>
+        </li>
+    `).join('');
+
+    return `
+        <div class="pie-wrap">
+            <svg class="pie-chart" viewBox="0 0 180 180" aria-label="Story origin countries by airings">
+                ${paths}
+            </svg>
+            <ul class="pie-legend">${legend}</ul>
+        </div>
+    `;
+}
+
+function colorFor(m, i, total) {
+    if (m.country === 'Other') return PIE_OTHER;
+    return PIE_PALETTE[i % PIE_PALETTE.length];
 }
 
 function renderChannelModalStoryPage() {
