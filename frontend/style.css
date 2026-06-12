@@ -569,6 +569,75 @@ tr.channel-row:focus { outline: none; background: #eef2f4; box-shadow: inset 2px
     color: var(--tr-text-light);
     font-variant-numeric: tabular-nums;
 }
+
+/* Channel-modal pie: slices and legend rows that map to a real country (not the
+   aggregate "Other" bucket) are click-to-filter. Selected slice gets a heavy
+   orange stroke; selected legend row goes orange to match. */
+.pie-chart path[data-country] { cursor: pointer; }
+.pie-chart path.pie-slice-selected { stroke: var(--tr-orange); stroke-width: 3; }
+.pie-legend li[data-country] { cursor: pointer; }
+.pie-legend li[data-country]:hover .pie-country { color: var(--tr-racing-green); }
+.pie-legend li.pie-legend-selected .pie-country,
+.pie-legend li.pie-legend-selected .pie-pct { color: var(--tr-orange); font-weight: 600; }
+
+/* Channel-modal filter row sits between the overview and the story table.
+   Mirrors the stories-view .filter-row spacing so it looks native. */
+.ch-modal-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+.ch-modal-filter-row .results-count { margin-left: auto; }
+
+.ch-modal-active-filters {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 0 0 10px;
+    min-height: 0;
+}
+.ch-modal-active-filters:empty { display: none; }
+.filter-chip-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--tr-text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+}
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font-family: 'Knowledge', 'Clario', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 2px;
+    border: 1px solid rgba(214, 64, 0, 0.35);
+    background: rgba(214, 64, 0, 0.08);
+    color: var(--tr-orange);
+    cursor: pointer;
+}
+.filter-chip:hover { background: rgba(214, 64, 0, 0.16); }
+.filter-chip-x { font-size: 10px; opacity: 0.7; }
+.filter-chip-clear-all {
+    border-color: var(--tr-border);
+    background: #fff;
+    color: var(--tr-text-light);
+}
+.filter-chip-clear-all:hover { color: var(--tr-racing-green); border-color: var(--tr-racing-green); background: #fff; }
+
+.ch-modal-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--tr-text-light);
+    font-size: 13px;
+}
+
 .trend-chart .trend-bar { fill: var(--tr-orange); }
 .trend-chart .trend-bar:hover { fill: var(--tr-dark-amber); }
 

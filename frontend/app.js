@@ -731,6 +731,10 @@ function openChannelModal(channelName) {
     chModalName.textContent = c.channel;
     chModalCountry.textContent = c.country || '';
     chModalActive.textContent = c.first_seen ? `First seen ${c.first_seen}` : '';
+    // Each modal open starts with a clean slate — no filter leakage between channels
+    state.chModalRegion = 'all';
+    state.chModalCountry = null;
+    state.chModalStoryPage = 1;
     channelModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     renderChannelModalBody(c);
@@ -784,6 +788,19 @@ function renderChannelModalBody(c) {
         </div>
 
         <div class="modal-section">
+            <div class="ch-modal-filter-row">
+                <span class="filter-label">Region:</span>
+                <div class="filter-pills ch-modal-region-pills">
+                    <button class="filter-pill active" data-ch-region="all">All</button>
+                    <button class="filter-pill" data-ch-region="Europe">Europe</button>
+                    <button class="filter-pill" data-ch-region="Americas">Americas</button>
+                    <button class="filter-pill" data-ch-region="Asia Pacific">Asia Pacific</button>
+                    <button class="filter-pill" data-ch-region="Middle East">Middle East</button>
+                    <button class="filter-pill" data-ch-region="Africa">Africa</button>
+                </div>
+                <span class="results-count" id="ch-modal-story-count"></span>
+            </div>
+            <div class="ch-modal-active-filters" id="ch-modal-active-filters"></div>
             <div class="modal-table-wrap">
                 <table class="modal-table">
                     <thead><tr><th>Story</th><th>Airings</th><th>Air Time</th></tr></thead>
@@ -794,9 +811,8 @@ function renderChannelModalBody(c) {
         </div>
     `;
 
-    state.chModalStories = c.all_stories || [];
-    state.chModalStoryPage = 1;
-    renderChannelModalStoryPage();
+    state.chModalAllStories = c.all_stories || [];
+    applyChannelModalFilters();
 }
 
 // Slug-origin palette tuned to the Reuters brand: orange anchor, racing-green,
@@ -842,19 +858,26 @@ function renderCountryPie(mix) {
         };
     });
 
-    const paths = slices.map(s => `
-        <path d="${s.path}" fill="${s.color}" stroke="#fff" stroke-width="1.5">
-            <title>${escHtml(s.country)}: ${s.airings.toLocaleString()} airings (${Math.round(s.frac * 100)}%)</title>
-        </path>
-    `).join('');
+    // "Other" is an aggregate bucket, not a single rubric — don't make it a filter target.
+    const paths = slices.map(s => {
+        const clickable = s.country && s.country !== 'Other';
+        const dataAttr = clickable ? ` data-country="${escHtml(s.country)}"` : '';
+        return `
+        <path d="${s.path}" fill="${s.color}" stroke="#fff" stroke-width="1.5"${dataAttr}>
+            <title>${escHtml(s.country)}: ${s.airings.toLocaleString()} airings (${Math.round(s.frac * 100)}%)${clickable ? ' — click to filter' : ''}</title>
+        </path>`;
+    }).join('');
 
-    const legend = slices.map(s => `
-        <li>
+    const legend = slices.map(s => {
+        const clickable = s.country && s.country !== 'Other';
+        const dataAttr = clickable ? ` data-country="${escHtml(s.country)}"` : '';
+        return `
+        <li${dataAttr}>
             <span class="pie-swatch" style="background:${s.color}"></span>
             <span class="pie-country">${escHtml(s.country)}</span>
             <span class="pie-pct">${Math.round(s.frac * 100)}%</span>
-        </li>
-    `).join('');
+        </li>`;
+    }).join('');
 
     return `
         <div class="pie-wrap">
@@ -871,15 +894,90 @@ function colorFor(m, i, total) {
     return PIE_PALETTE[i % PIE_PALETTE.length];
 }
 
+// Filters compose: region (slug → set of regions) AND country (slug → first rubric
+// token). Both pulled from precomputed fields on each story row so pie labels
+// and filter buckets stay in lockstep.
+function applyChannelModalFilters() {
+    const all = state.chModalAllStories || [];
+    const region = state.chModalRegion || 'all';
+    const country = state.chModalCountry;
+    let filtered = all;
+    if (region !== 'all') {
+        filtered = filtered.filter(s => Array.isArray(s.regions) && s.regions.includes(region));
+    }
+    if (country) {
+        filtered = filtered.filter(s => s.origin_country === country);
+    }
+    state.chModalStories = filtered;
+    state.chModalStoryPage = 1;
+
+    // Reflect region selection on the pills (active class) and country selection
+    // on both the pie slice and its legend row.
+    document.querySelectorAll('.ch-modal-region-pills .filter-pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.chRegion === region);
+    });
+    document.querySelectorAll('.pie-chart path[data-country]').forEach(p => {
+        p.classList.toggle('pie-slice-selected', country != null && p.dataset.country === country);
+    });
+    document.querySelectorAll('.pie-legend li[data-country]').forEach(li => {
+        li.classList.toggle('pie-legend-selected', country != null && li.dataset.country === country);
+    });
+
+    renderChModalActiveFilters();
+    renderChannelModalStoryPage();
+}
+
+function renderChModalActiveFilters() {
+    const wrap = document.getElementById('ch-modal-active-filters');
+    if (!wrap) return;
+    const chips = [];
+    if (state.chModalRegion && state.chModalRegion !== 'all') {
+        chips.push(`<button class="filter-chip" data-clear-ch-filter="region">${escHtml(state.chModalRegion)} <span class="filter-chip-x">✕</span></button>`);
+    }
+    if (state.chModalCountry) {
+        chips.push(`<button class="filter-chip" data-clear-ch-filter="country">${escHtml(prettyCountry(state.chModalCountry))} <span class="filter-chip-x">✕</span></button>`);
+    }
+    if (chips.length >= 2) {
+        chips.push(`<button class="filter-chip filter-chip-clear-all" data-clear-ch-filter="all">Clear all</button>`);
+    }
+    wrap.innerHTML = chips.length ? `<span class="filter-chip-label">Filtered:</span>${chips.join('')}` : '';
+}
+
+// Slug rubrics are uppercase tokens (USA, IRAN). Title-case them for chip display
+// without touching the underlying value used for matching.
+function prettyCountry(c) {
+    if (!c) return '';
+    return c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
+}
+
 function renderChannelModalStoryPage() {
     const all = state.chModalStories || [];
     const total = all.length;
+    const totalUnfiltered = (state.chModalAllStories || []).length;
     const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
     const page = Math.min(state.chModalStoryPage || 1, pages);
     const start = (page - 1) * MODAL_PAGE_SIZE;
     const slice = all.slice(start, start + MODAL_PAGE_SIZE);
 
-    document.getElementById('ch-modal-story-tbody').innerHTML = slice.map(s => `
+    const countEl = document.getElementById('ch-modal-story-count');
+    if (countEl) {
+        const noun = total === 1 ? 'story' : 'stories';
+        countEl.textContent = total === totalUnfiltered
+            ? `${total.toLocaleString()} ${noun}`
+            : `${total.toLocaleString()} of ${totalUnfiltered.toLocaleString()} ${noun}`;
+    }
+
+    const tbody = document.getElementById('ch-modal-story-tbody');
+    if (total === 0) {
+        tbody.innerHTML = `
+            <tr><td colspan="3">
+                <div class="ch-modal-empty">No stories match this filter — try a different region or clear the filter.</div>
+            </td></tr>`;
+        renderModalPagination('ch-modal-story-pagination', 'ch-story', 1, 1, 0, 0, 'stories');
+        return;
+    }
+
+    tbody.innerHTML = slice.map(s => `
         <tr>
             <td>
                 <div class="slug-main">${escHtml(displaySlug(s))}</div>
@@ -892,7 +990,37 @@ function renderChannelModalStoryPage() {
     renderModalPagination('ch-modal-story-pagination', 'ch-story', page, pages, start, total, 'stories');
 }
 
+// Delegated handler for the channel-modal body — survives re-renders. Handles
+// pagination, region pills, pie/legend country selection, and chip clears.
 chModalBody.addEventListener('click', e => {
+    // 1. Region pill → set region filter
+    const pill = e.target.closest('.ch-modal-region-pills .filter-pill[data-ch-region]');
+    if (pill) {
+        state.chModalRegion = pill.dataset.chRegion;
+        applyChannelModalFilters();
+        return;
+    }
+
+    // 2. Pie slice or legend row → toggle country filter
+    const slice = e.target.closest('.pie-chart path[data-country], .pie-legend li[data-country]');
+    if (slice) {
+        const country = slice.dataset.country;
+        state.chModalCountry = state.chModalCountry === country ? null : country;
+        applyChannelModalFilters();
+        return;
+    }
+
+    // 3. Filter chip → clear region / country / both
+    const chip = e.target.closest('[data-clear-ch-filter]');
+    if (chip) {
+        const what = chip.dataset.clearChFilter;
+        if (what === 'region' || what === 'all') state.chModalRegion = 'all';
+        if (what === 'country' || what === 'all') state.chModalCountry = null;
+        applyChannelModalFilters();
+        return;
+    }
+
+    // 4. Pagination — existing behaviour
     const btn = e.target.closest('[data-page-action]');
     if (!btn || btn.dataset.pageKind !== 'ch-story') return;
     const total = (state.chModalStories || []).length;

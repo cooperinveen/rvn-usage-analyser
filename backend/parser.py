@@ -388,13 +388,18 @@ def parse_file(file_bytes, filename):
             row['slug'] = row.pop('_slug')
             row['air_time'] = _seconds_to_hms(row['air_secs'])
             del row['air_secs']
+            # Pre-derive slug-based filtering fields so the client doesn't have
+            # to mirror _region_from_slug/_country_from_slug. origin_country is
+            # the exact token the pie aggregates by → click-to-filter matches 1:1.
+            row['origin_country'] = _country_from_slug(row['slug'])
+            row['regions'] = sorted(_region_from_slug(row['slug']))
 
         # Story-origin country mix for this channel (airings-weighted).
         # Pulled from the slug's first rubric token, so producers see the
         # same country labels they use editorially (USA, IRAN, JAPAN, etc).
         mix_counts = defaultdict(int)
         for row in all_stories:
-            origin = _country_from_slug(row['slug'])
+            origin = row['origin_country']
             mix_counts[origin] += int(row['airings'])
         mix_sorted = sorted(mix_counts.items(), key=lambda kv: kv[1], reverse=True)
         # Top 8 + Other so the pie stays readable.
