@@ -283,8 +283,24 @@ body {
 
 .filter-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
-/* Split-button export control (main click + chevron + dropdown menu) */
+/* Split-button export control — sized to match the .filter-pill rows above */
 .export-split { position: relative; display: inline-flex; align-items: stretch; }
+.export-split .btn.export-main,
+.export-split .btn.export-chevron {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 14px;
+    border-radius: 2px;
+    border: 1px solid var(--tr-border);
+    color: var(--tr-text);
+    background: #fff;
+}
+.export-split .btn.export-main:hover,
+.export-split .btn.export-chevron:hover {
+    border-color: var(--tr-racing-green);
+    color: var(--tr-racing-green);
+    background: #fff;
+}
 .export-split .export-main {
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
@@ -294,12 +310,13 @@ body {
 .export-split .export-chevron {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
-    padding: 6px 8px;
-    border-left: 1px solid var(--tr-racing-green);
+    padding: 5px 8px;
+    border-left: 1px solid var(--tr-border);
     display: inline-flex;
     align-items: center;
 }
-.export-split .export-chevron:hover { background: var(--tr-racing-green); color: #fff; }
+.export-split .export-main:hover + .export-chevron,
+.export-split:hover .export-chevron { border-left-color: var(--tr-racing-green); }
 .export-menu {
     position: absolute;
     right: 0;
