@@ -928,19 +928,19 @@ $('btn-export').addEventListener('click', async () => {
     }
 });
 
-// "Export top 25" — context-aware: dumps whatever's currently on screen
-// (filtered + sorted) capped to 25 rows. Same backend endpoint for both views.
-async function exportTopN(kind, rows, defaultName) {
-    const slice = rows.slice(0, 25);
-    if (slice.length === 0) {
-        showToast(`Nothing to export — try clearing your search.`);
+// "Export top N" — context-aware: dumps whatever's currently on screen
+// (filtered + sorted) capped to N rows. N selected via split-button dropdown.
+async function exportTopN(kind, n) {
+    const rows = (kind === 'channels' ? state.filteredChannels : state.filteredStories).slice(0, n);
+    if (rows.length === 0) {
+        showToast('Nothing to export — try clearing your search.');
         return;
     }
     try {
         const res = await fetch('/api/export-top', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ kind, rows: slice }),
+            body: JSON.stringify({ kind, rows }),
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
@@ -951,20 +951,56 @@ async function exportTopN(kind, rows, defaultName) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = defaultName;
+        a.download = `reuters-top-${kind}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast(`Downloading top ${slice.length} ${kind}…`);
+        showToast(`Downloading top ${rows.length} ${kind}…`);
     } catch (err) {
         showToast('Export failed — please try again');
     }
 }
 
-$('btn-export-top-stories').addEventListener('click', () => {
-    exportTopN('stories', state.filteredStories, 'reuters-top-stories.xlsx');
+document.querySelectorAll('.export-split').forEach(split => {
+    const kind = split.dataset.kind;
+    const main = split.querySelector('.export-main');
+    const chevron = split.querySelector('.export-chevron');
+    const menu = split.querySelector('.export-menu');
+    const label = split.querySelector('.export-count');
+
+    function setCount(n) {
+        main.dataset.count = String(n);
+        label.textContent = String(n);
+        split.querySelectorAll('.export-menu-item').forEach(it => {
+            it.classList.toggle('active', it.dataset.count === String(n));
+        });
+    }
+    setCount(25);
+
+    main.addEventListener('click', () => {
+        exportTopN(kind, parseInt(main.dataset.count, 10) || 25);
+    });
+
+    chevron.addEventListener('click', e => {
+        e.stopPropagation();
+        // Close every other split's menu before opening this one.
+        document.querySelectorAll('.export-menu').forEach(m => { if (m !== menu) m.hidden = true; });
+        menu.hidden = !menu.hidden;
+    });
+
+    menu.addEventListener('click', e => {
+        const item = e.target.closest('.export-menu-item');
+        if (!item) return;
+        const n = parseInt(item.dataset.count, 10) || 25;
+        setCount(n);
+        menu.hidden = true;
+        exportTopN(kind, n);
+    });
 });
-$('btn-export-top-channels').addEventListener('click', () => {
-    exportTopN('channels', state.filteredChannels, 'reuters-top-channels.xlsx');
+
+// Click anywhere else closes any open export menu.
+document.addEventListener('click', e => {
+    if (e.target.closest('.export-split')) return;
+    document.querySelectorAll('.export-menu').forEach(m => { m.hidden = true; });
 });
 
 // ── Loading helpers ──────────────────────────────────────────────────────────
