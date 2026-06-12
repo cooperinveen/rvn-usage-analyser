@@ -8,7 +8,10 @@ from collections import defaultdict
 COL_ALIASES = {
     'channel': ['Channel: Name', 'channel_name', 'Channel Name'],
     'market': ['Market: Name', 'market_name', 'Market Name'],
-    'region': ['Channel: Region Name', 'Channel: Region name', 'channelRegionName', 'Region: Name', 'Region Name'],
+    # 'Region: Name' in Teletrax = channel's home region (United States, Portugal,
+    # International — confirmed against actual exports). 'Market: Name' = the
+    # broadcast DMA (Paducah, Sydney standalone, etc.), which is finer-grained.
+    'region': ['Region: Name', 'Region Name', 'Channel: Region Name', 'Channel: Region name', 'channelRegionName'],
     'utc_start': ['UTC detection start', 'hitUtcDetectionStart', 'detection_start_date_time_utc'],
     'local_start': ['Local detection start', 'hitLocalDetectionStart', 'detection_start_date_time_local'],
     'story_id': ['Story ID', 'itemid', 'Item ID'],
@@ -391,8 +394,8 @@ def parse_file(file_bytes, filename):
         # same country labels they use editorially (USA, IRAN, JAPAN, etc).
         mix_counts = defaultdict(int)
         for row in all_stories:
-            country = _country_from_slug(row['slug'])
-            mix_counts[country] += int(row['airings'])
+            origin = _country_from_slug(row['slug'])
+            mix_counts[origin] += int(row['airings'])
         mix_sorted = sorted(mix_counts.items(), key=lambda kv: kv[1], reverse=True)
         # Top 8 + Other so the pie stays readable.
         if len(mix_sorted) > 8:
