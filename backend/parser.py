@@ -322,6 +322,66 @@ def parse_file(file_bytes, filename):
     # Sort by airings descending
     stories.sort(key=lambda x: x['airings'], reverse=True)
 
+    # --- Aggregate per channel ---
+    # One entry per channel: airings, distinct stories, air time, trend sparkline,
+    # full list of stories aired (for the channel-detail modal).
+    channels_out = []
+    ch_grouped = df.groupby('_channel', sort=False)
+
+    for chan, grp in ch_grouped:
+        country = grp['_country'].iloc[0] if len(grp) else ''
+        ch_airings = len(grp)
+        ch_stories = grp['_slug'].nunique()
+        ch_air_secs = grp['_actual_secs'].sum()
+        ch_avg_secs = grp['_actual_secs'].mean()
+
+        first_seen = grp['_utc_start'].min()
+        last_seen = grp['_utc_start'].max()
+        days_active = max(1, (last_seen - first_seen).days + 1) if pd.notna(first_seen) and pd.notna(last_seen) else 1
+
+        # Stories aired on this channel — one row per slug, sorted by airings desc
+        s_agg = grp.groupby('_slug').agg(
+            airings=('_actual_secs', 'count'),
+            air_secs=('_actual_secs', 'sum'),
+            story_id=('_story_id', 'first'),
+            headline=('_headline', 'first'),
+        ).reset_index().sort_values('airings', ascending=False)
+        all_stories = s_agg.to_dict('records')
+        for row in all_stories:
+            row['slug'] = row.pop('_slug')
+            row['air_time'] = _seconds_to_hms(row['air_secs'])
+            del row['air_secs']
+
+        # Channel trend uses the same shared bin edges as stories — comparable sparklines.
+        if len(trend_edges):
+            ts = grp['_utc_start'].dropna()
+            if len(ts):
+                counts, _ = _np.histogram(ts.astype('int64').to_numpy(),
+                                          bins=trend_edges.astype('int64').to_numpy())
+                ch_trend = [int(c) for c in counts]
+            else:
+                ch_trend = [0] * (len(trend_edges) - 1)
+        else:
+            ch_trend = []
+
+        channels_out.append({
+            'channel': chan,
+            'country': country,
+            'airings': int(ch_airings),
+            'stories': int(ch_stories),
+            'total_air_time': _seconds_to_hms(ch_air_secs),
+            'total_air_secs': int(ch_air_secs),
+            'avg_clip': _seconds_to_hms(ch_avg_secs),
+            'avg_clip_secs': int(ch_avg_secs),
+            'first_seen': first_seen.strftime('%d %b %Y %H:%M') if pd.notna(first_seen) else '',
+            'last_seen': last_seen.strftime('%d %b %Y %H:%M') if pd.notna(last_seen) else '',
+            'days_active': int(days_active),
+            'all_stories': all_stories,
+            'trend': ch_trend,
+        })
+
+    channels_out.sort(key=lambda x: x['airings'], reverse=True)
+
     # --- Global summary ---
     total_airings = len(df)
     total_stories = len(stories)
@@ -374,6 +434,7 @@ def parse_file(file_bytes, filename):
     return {
         'summary': summary,
         'stories': stories,
+        'channels': channels_out,
         'top_channels': top_channels_list,
         'top_markets': top_markets_list,
         'date_range': date_range,

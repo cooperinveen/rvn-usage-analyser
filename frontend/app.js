@@ -1,14 +1,21 @@
 // ── State ──────────────────────────────────────────────────────────────────
 const state = {
+    view: 'stories',           // 'stories' | 'channels'
     allStories: [],
     filteredStories: [],
+    allChannels: [],
+    filteredChannels: [],
     currentPage: 1,
+    chCurrentPage: 1,
     pageSize: 50,
     sortKey: 'airings',
     sortDir: 'desc',
+    chSortKey: 'airings',
+    chSortDir: 'desc',
     searchQuery: '',
     regionFilter: 'all',
     minAirings: 1,
+    chMinAirings: 1,
     summary: null,
     topChannels: [],
     topMarkets: [],
@@ -146,6 +153,7 @@ async function uploadToBlob(file) {
 
 function loadData(data) {
     state.allStories = data.stories;
+    state.allChannels = data.channels || [];
     state.summary = data.summary;
     state.topChannels = data.top_channels;
     state.topMarkets = data.top_markets;
@@ -153,12 +161,17 @@ function loadData(data) {
     state.trendLabels = data.trend_labels || [];
     state.trendUnit = data.trend_unit || 'day';
     state.currentPage = 1;
+    state.chCurrentPage = 1;
     state.searchQuery = '';
     state.regionFilter = 'all';
     state.minAirings = 1;
+    state.chMinAirings = 1;
+    state.view = 'stories';
     searchInput.value = '';
     $('min-airings-input').value = 1;
+    $('min-ch-airings-input').value = 1;
     setActivePill('all');
+    setActiveView('stories');
 }
 
 // ── Show/hide screens ────────────────────────────────────────────────────────
@@ -212,7 +225,7 @@ function renderInsights() {
 
     const maxChAirings = state.topChannels[0]?.airings || 1;
     $('top-channels-list').innerHTML = state.topChannels.map((c, i) => `
-        <div class="insight-item">
+        <div class="insight-item" data-channel="${escHtml(c.channel)}">
             <span class="insight-rank">${i + 1}</span>
             <div style="flex:1; min-width:0">
                 <div class="insight-name">${escHtml(c.channel)}</div>
@@ -236,19 +249,54 @@ function renderInsights() {
     `).join('');
 }
 
+// ── View tabs (Stories / Channels) ───────────────────────────────────────────
+function setActiveView(view) {
+    state.view = view;
+    document.querySelectorAll('.view-tab').forEach(t => {
+        const on = t.dataset.view === view;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const isStories = view === 'stories';
+    $('stories-table-wrap').style.display = isStories ? '' : 'none';
+    $('channels-table-wrap').style.display = isStories ? 'none' : '';
+    $('filter-row-stories').style.display = isStories ? '' : 'none';
+    $('filter-row-channels').style.display = isStories ? 'none' : '';
+    searchInput.placeholder = isStories
+        ? 'Search by story slug — e.g. ukraine, iran, soccer...'
+        : 'Search by channel — e.g. nhk, cnn, sky...';
+    // Each view keeps its own search query/page so producers can flip between them.
+    if (isStories) applyFilters();
+    else applyChannelFilters();
+}
+
+document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.addEventListener('click', () => setActiveView(tab.dataset.view));
+});
+
 // ── Filtering & Search ───────────────────────────────────────────────────────
 searchInput.addEventListener('input', () => {
     state.searchQuery = searchInput.value.trim().toLowerCase();
     searchClear.style.display = state.searchQuery ? 'block' : 'none';
-    state.currentPage = 1;
-    applyFilters();
+    if (state.view === 'stories') {
+        state.currentPage = 1;
+        applyFilters();
+    } else {
+        state.chCurrentPage = 1;
+        applyChannelFilters();
+    }
 });
 searchClear.addEventListener('click', () => {
     searchInput.value = '';
     state.searchQuery = '';
     searchClear.style.display = 'none';
-    state.currentPage = 1;
-    applyFilters();
+    if (state.view === 'stories') {
+        state.currentPage = 1;
+        applyFilters();
+    } else {
+        state.chCurrentPage = 1;
+        applyChannelFilters();
+    }
 });
 
 document.querySelectorAll('.filter-pill').forEach(pill => {
@@ -264,6 +312,12 @@ $('min-airings-input').addEventListener('input', () => {
     state.minAirings = parseInt($('min-airings-input').value) || 1;
     state.currentPage = 1;
     applyFilters();
+});
+
+$('min-ch-airings-input').addEventListener('input', () => {
+    state.chMinAirings = parseInt($('min-ch-airings-input').value) || 1;
+    state.chCurrentPage = 1;
+    applyChannelFilters();
 });
 
 function setActivePill(region) {
@@ -361,7 +415,8 @@ function renderTable() {
 }
 
 // ── Sorting ──────────────────────────────────────────────────────────────────
-document.querySelectorAll('th.sortable').forEach(th => {
+// Story headers have data-sort; channel headers have data-ch-sort. Same shape, different state.
+document.querySelectorAll('th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
         const key = th.dataset.sort;
         if (state.sortKey === key) {
@@ -370,7 +425,7 @@ document.querySelectorAll('th.sortable').forEach(th => {
             state.sortKey = key;
             state.sortDir = 'desc';
         }
-        document.querySelectorAll('th.sortable').forEach(t => {
+        document.querySelectorAll('th[data-sort]').forEach(t => {
             t.classList.remove('sorted');
             t.querySelector('.sort-indicator').textContent = '';
         });
@@ -381,26 +436,131 @@ document.querySelectorAll('th.sortable').forEach(th => {
     });
 });
 
+document.querySelectorAll('th[data-ch-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+        const key = th.dataset.chSort;
+        if (state.chSortKey === key) {
+            state.chSortDir = state.chSortDir === 'desc' ? 'asc' : 'desc';
+        } else {
+            state.chSortKey = key;
+            state.chSortDir = 'desc';
+        }
+        document.querySelectorAll('th[data-ch-sort]').forEach(t => {
+            t.classList.remove('sorted');
+            t.querySelector('.sort-indicator').textContent = '';
+        });
+        th.classList.add('sorted');
+        th.querySelector('.sort-indicator').textContent = state.chSortDir === 'desc' ? '▼' : '▲';
+        state.chCurrentPage = 1;
+        applyChannelFilters();
+    });
+});
+
+// ── Channel filtering / rendering ────────────────────────────────────────────
+function applyChannelFilters() {
+    let filtered = state.allChannels;
+
+    if (state.searchQuery) {
+        const q = state.searchQuery;
+        filtered = filtered.filter(c =>
+            (c.channel && c.channel.toLowerCase().includes(q)) ||
+            (c.country && c.country.toLowerCase().includes(q))
+        );
+    }
+
+    if (state.chMinAirings > 1) {
+        filtered = filtered.filter(c => c.airings >= state.chMinAirings);
+    }
+
+    filtered = [...filtered].sort((a, b) => {
+        let av = a[state.chSortKey], bv = b[state.chSortKey];
+        const aNull = av == null, bNull = bv == null;
+        if (aNull && bNull) return 0;
+        if (aNull) return 1;
+        if (bNull) return -1;
+        if (typeof av === 'string') av = av.toLowerCase();
+        if (typeof bv === 'string') bv = bv.toLowerCase();
+        if (av < bv) return state.chSortDir === 'asc' ? -1 : 1;
+        if (av > bv) return state.chSortDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    state.filteredChannels = filtered;
+    $('ch-results-count').textContent = `${filtered.length.toLocaleString()} channel${filtered.length === 1 ? '' : 's'}`;
+    renderChannelTable();
+    renderPagination();
+}
+
+function renderChannelTable() {
+    const tbody = $('channels-tbody');
+    const start = (state.chCurrentPage - 1) * state.pageSize;
+    const page = state.filteredChannels.slice(start, start + state.pageSize);
+    const maxAirings = state.filteredChannels[0]?.airings || 1;
+
+    if (page.length === 0) {
+        tbody.innerHTML = `
+            <tr><td colspan="6">
+                <div class="empty-state">
+                    <p class="empty-state-text">No channels match your search</p>
+                    <p class="empty-state-sub">Try a different keyword or clear your filters</p>
+                </div>
+            </td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = page.map(c => {
+        const barWidth = Math.max(2, Math.round(c.airings / maxAirings * 60));
+        const sparkline = renderSparkline(c.trend, state.trendLabels, state.trendUnit);
+        return `
+        <tr class="channel-row" data-channel="${escHtml(c.channel)}" tabindex="0">
+            <td class="col-channel">
+                <div class="channel-cell-main">${escHtml(c.channel)}</div>
+            </td>
+            <td class="col-country channel-cell-country">${escHtml(c.country || '')}</td>
+            <td class="col-num">
+                <div class="airing-bar-wrap">
+                    <div class="airing-bar" style="width:${barWidth}px"></div>
+                    <span>${c.airings.toLocaleString()}</span>
+                </div>
+            </td>
+            <td class="col-num">${c.stories.toLocaleString()}</td>
+            <td class="col-time">${escHtml(c.total_air_time)}</td>
+            <td class="col-trend">${sparkline}</td>
+        </tr>`;
+    }).join('');
+}
+
 // ── Pagination ────────────────────────────────────────────────────────────────
 function renderPagination() {
-    const total = state.filteredStories.length;
+    const isStories = state.view === 'stories';
+    const total = isStories ? state.filteredStories.length : state.filteredChannels.length;
     const pages = Math.ceil(total / state.pageSize);
+    const page = isStories ? state.currentPage : state.chCurrentPage;
     const bar = $('pagination-bar');
 
     if (pages <= 1) { bar.style.display = 'none'; return; }
     bar.style.display = 'flex';
 
-    $('page-info').textContent = `Page ${state.currentPage} of ${pages}`;
-    $('btn-prev').disabled = state.currentPage === 1;
-    $('btn-next').disabled = state.currentPage === pages;
+    $('page-info').textContent = `Page ${page} of ${pages}`;
+    $('btn-prev').disabled = page === 1;
+    $('btn-next').disabled = page === pages;
 }
 
 $('btn-prev').addEventListener('click', () => {
-    if (state.currentPage > 1) { state.currentPage--; renderTable(); renderPagination(); window.scrollTo(0, 0); }
+    if (state.view === 'stories') {
+        if (state.currentPage > 1) { state.currentPage--; renderTable(); renderPagination(); window.scrollTo(0, 0); }
+    } else {
+        if (state.chCurrentPage > 1) { state.chCurrentPage--; renderChannelTable(); renderPagination(); window.scrollTo(0, 0); }
+    }
 });
 $('btn-next').addEventListener('click', () => {
-    const pages = Math.ceil(state.filteredStories.length / state.pageSize);
-    if (state.currentPage < pages) { state.currentPage++; renderTable(); renderPagination(); window.scrollTo(0, 0); }
+    if (state.view === 'stories') {
+        const pages = Math.ceil(state.filteredStories.length / state.pageSize);
+        if (state.currentPage < pages) { state.currentPage++; renderTable(); renderPagination(); window.scrollTo(0, 0); }
+    } else {
+        const pages = Math.ceil(state.filteredChannels.length / state.pageSize);
+        if (state.chCurrentPage < pages) { state.chCurrentPage++; renderChannelTable(); renderPagination(); window.scrollTo(0, 0); }
+    }
 });
 
 // ── Story Detail Modal ────────────────────────────────────────────────────────
@@ -540,6 +700,22 @@ $('top-stories-list').addEventListener('click', e => {
     const item = e.target.closest('[data-slug]');
     if (item) openStoryModal(item.dataset.slug);
 });
+$('top-channels-list').addEventListener('click', e => {
+    const item = e.target.closest('[data-channel]');
+    if (item) openChannelModal(item.dataset.channel);
+});
+
+$('channels-tbody').addEventListener('click', e => {
+    const row = e.target.closest('tr[data-channel]');
+    if (!row) return;
+    if (window.getSelection().toString().length > 0) return;
+    openChannelModal(row.dataset.channel);
+});
+$('channels-tbody').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const row = e.target.closest('tr[data-channel]');
+    if (row) openChannelModal(row.dataset.channel);
+});
 
 // Modal table pagination — delegated so it survives re-renders
 modalBody.addEventListener('click', e => {
@@ -556,12 +732,133 @@ modalBody.addEventListener('click', e => {
 // Close modal
 $('modal-close').addEventListener('click', closeModal);
 storyModal.addEventListener('click', e => { if (e.target === storyModal) closeModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    closeModal();
+    closeChannelModal();
+});
 
 function closeModal() {
     storyModal.style.display = 'none';
-    document.body.style.overflow = '';
+    if ($('channel-modal').style.display === 'none') document.body.style.overflow = '';
 }
+
+// ── Channel Detail Modal ──────────────────────────────────────────────────────
+const channelModal = $('channel-modal');
+const chModalName = $('ch-modal-name');
+const chModalCountry = $('ch-modal-country');
+const chModalActive = $('ch-modal-active');
+const chModalBody = $('ch-modal-body');
+
+function openChannelModal(channelName) {
+    const c = state.allChannels.find(x => x.channel === channelName);
+    if (!c) return;
+    chModalName.textContent = c.channel;
+    chModalCountry.textContent = c.country || '';
+    chModalActive.textContent = c.first_seen ? `First seen ${c.first_seen}` : '';
+    channelModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    renderChannelModalBody(c);
+}
+
+function closeChannelModal() {
+    channelModal.style.display = 'none';
+    if (storyModal.style.display === 'none') document.body.style.overflow = '';
+}
+
+$('ch-modal-close').addEventListener('click', closeChannelModal);
+channelModal.addEventListener('click', e => { if (e.target === channelModal) closeChannelModal(); });
+
+function renderChannelModalBody(c) {
+    const trendChart = renderTrendChart(c.trend, state.trendLabels, state.trendUnit);
+    const topStory = c.all_stories?.[0];
+
+    const miniPanel = `
+        <ul class="modal-mini-panel">
+            ${topStory ? `<li><span class="mini-label">Top story</span><span class="mini-value">${escHtml(displaySlug(topStory))} <span class="mini-sub">(${topStory.airings.toLocaleString()} airings)</span></span></li>` : ''}
+            <li><span class="mini-label">Avg clip used</span><span class="mini-value">${escHtml(c.avg_clip)}</span></li>
+            <li><span class="mini-label">Last aired</span><span class="mini-value">${escHtml(c.last_seen || '—')}</span></li>
+        </ul>
+    `;
+
+    chModalBody.innerHTML = `
+        <div class="modal-section">
+            <div class="modal-overview">
+                <div class="modal-overview-stats">
+                    <div class="stats-grid stats-grid-compact">
+                        <div class="stat-card">
+                            <span class="stat-card-value">${c.airings.toLocaleString()}</span>
+                            <span class="stat-card-label">Airings</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-card-value">${c.stories.toLocaleString()}</span>
+                            <span class="stat-card-label">Stories aired</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-card-value">${c.days_active}</span>
+                            <span class="stat-card-label">Days active</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-card-value">${escHtml(c.total_air_time)}</span>
+                            <span class="stat-card-label">Total air time</span>
+                        </div>
+                    </div>
+                </div>
+                ${trendChart ? `
+                <div class="modal-overview-chart">
+                    <div class="trend-chart-wrap">${trendChart}</div>
+                    ${miniPanel}
+                </div>` : `
+                <div class="modal-overview-chart">${miniPanel}</div>`}
+            </div>
+        </div>
+
+        <div class="modal-section">
+            <div class="modal-table-wrap">
+                <table class="modal-table">
+                    <thead><tr><th>Story</th><th>Airings</th><th>Air Time</th></tr></thead>
+                    <tbody id="ch-modal-story-tbody"></tbody>
+                </table>
+            </div>
+            <div class="modal-pagination" id="ch-modal-story-pagination"></div>
+        </div>
+    `;
+
+    state.chModalStories = c.all_stories || [];
+    state.chModalStoryPage = 1;
+    renderChannelModalStoryPage();
+}
+
+function renderChannelModalStoryPage() {
+    const all = state.chModalStories || [];
+    const total = all.length;
+    const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
+    const page = Math.min(state.chModalStoryPage || 1, pages);
+    const start = (page - 1) * MODAL_PAGE_SIZE;
+    const slice = all.slice(start, start + MODAL_PAGE_SIZE);
+
+    document.getElementById('ch-modal-story-tbody').innerHTML = slice.map(s => `
+        <tr>
+            <td>
+                <div class="slug-main">${escHtml(displaySlug(s))}</div>
+                ${s.headline ? `<div class="slug-headline">${escHtml(s.headline)}</div>` : ''}
+            </td>
+            <td class="num">${s.airings}</td>
+            <td class="num">${escHtml(s.air_time)}</td>
+        </tr>`).join('');
+
+    renderModalPagination('ch-modal-story-pagination', 'ch-story', page, pages, start, total, 'stories');
+}
+
+chModalBody.addEventListener('click', e => {
+    const btn = e.target.closest('[data-page-action]');
+    if (!btn || btn.dataset.pageKind !== 'ch-story') return;
+    const total = (state.chModalStories || []).length;
+    const pages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
+    if (btn.dataset.pageAction === 'next' && state.chModalStoryPage < pages) state.chModalStoryPage++;
+    if (btn.dataset.pageAction === 'prev' && state.chModalStoryPage > 1) state.chModalStoryPage--;
+    renderChannelModalStoryPage();
+});
 
 // ── Export ───────────────────────────────────────────────────────────────────
 $('btn-export').addEventListener('click', async () => {

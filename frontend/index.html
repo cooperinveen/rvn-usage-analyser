@@ -111,8 +111,14 @@
     <!-- Main content: two-column layout -->
     <div class="dashboard-body">
 
-        <!-- Left: Stories table -->
+        <!-- Left: Stories / Channels view -->
         <div class="stories-panel">
+
+            <!-- View tabs -->
+            <div class="view-tabs" role="tablist">
+                <button class="view-tab active" data-view="stories" role="tab" aria-selected="true">Stories</button>
+                <button class="view-tab" data-view="channels" role="tab" aria-selected="false">Channels</button>
+            </div>
 
             <!-- Search + Filters -->
             <div class="search-filter-bar">
@@ -126,7 +132,7 @@
                 </div>
             </div>
 
-            <div class="filter-row">
+            <div class="filter-row" id="filter-row-stories">
                 <span class="filter-label">Region:</span>
                 <div class="filter-pills" id="region-pills">
                     <button class="filter-pill active" data-region="all">All</button>
@@ -143,8 +149,16 @@
                 </div>
             </div>
 
+            <div class="filter-row" id="filter-row-channels" style="display:none">
+                <div class="filter-right" style="margin-left:0; width:100%; justify-content:flex-end">
+                    <label class="filter-label" for="min-ch-airings-input">Min airings:</label>
+                    <input type="number" id="min-ch-airings-input" class="min-airings-input" value="1" min="1" max="9999">
+                    <span class="results-count" id="ch-results-count"></span>
+                </div>
+            </div>
+
             <!-- Story Table -->
-            <div class="table-wrap">
+            <div class="table-wrap" id="stories-table-wrap">
                 <table id="stories-table">
                     <thead>
                         <tr>
@@ -159,6 +173,23 @@
                         </tr>
                     </thead>
                     <tbody id="stories-tbody"></tbody>
+                </table>
+            </div>
+
+            <!-- Channel Table -->
+            <div class="table-wrap" id="channels-table-wrap" style="display:none">
+                <table id="channels-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable col-channel" data-ch-sort="channel">Channel <span class="sort-indicator"></span></th>
+                            <th class="sortable col-country" data-ch-sort="country">Country <span class="sort-indicator"></span></th>
+                            <th class="sortable col-num" data-ch-sort="airings">Airings <span class="sort-indicator">▼</span></th>
+                            <th class="sortable col-num" data-ch-sort="stories">Stories <span class="sort-indicator"></span></th>
+                            <th class="col-time">Air Time</th>
+                            <th class="col-trend">Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody id="channels-tbody"></tbody>
                 </table>
             </div>
 
@@ -201,6 +232,25 @@
         </div>
         <div class="modal-body" id="modal-body">
             <div class="modal-loading">Loading story data...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Channel Detail Modal -->
+<div class="modal-backdrop" id="channel-modal" style="display:none">
+    <div class="modal modal-large">
+        <div class="modal-header">
+            <div class="modal-title-wrap">
+                <span class="modal-slug" id="ch-modal-name"></span>
+                <div class="modal-headline" id="ch-modal-country"></div>
+                <div class="modal-meta-row">
+                    <span class="modal-first-aired" id="ch-modal-active"></span>
+                </div>
+            </div>
+            <button class="modal-close" id="ch-modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="ch-modal-body">
+            <div class="modal-loading">Loading channel data...</div>
         </div>
     </div>
 </div>

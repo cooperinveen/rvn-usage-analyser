@@ -122,9 +122,12 @@ def upload():
     return jsonify({
         'summary': data['summary'],
         'stories': data['stories'],
+        'channels': data['channels'],
         'top_channels': data['top_channels'],
         'top_markets': data['top_markets'],
         'date_range': data['date_range'],
+        'trend_labels': data['trend_labels'],
+        'trend_unit': data['trend_unit'],
     })
 
 
@@ -190,9 +193,12 @@ def process_blob():
     return jsonify({
         'summary': data['summary'],
         'stories': data['stories'],
+        'channels': data['channels'],
         'top_channels': data['top_channels'],
         'top_markets': data['top_markets'],
         'date_range': data['date_range'],
+        'trend_labels': data['trend_labels'],
+        'trend_unit': data['trend_unit'],
     })
 
 

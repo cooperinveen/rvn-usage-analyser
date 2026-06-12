@@ -13,10 +13,13 @@ Teletrax monitors global TV broadcasts and detects when Reuters content airs. Th
 Upload a `.csv` or `.xlsx` export → get:
 
 - **Summary bar** — total stories, airings, channels, countries, air time for the period
+- **Two views, one toggle** — switch between a **Stories** view (per-story rollup) and a **Channels** view (per-channel rollup) to answer either "how is this story performing?" or "what did NHK use of ours this week?"
 - **Story table** — one row per story, sortable by airings/channels/countries/longevity/publish date, with search and region/minimum-airings filters. Each row shows an inline trend sparkline of airings per day across the dataset window.
+- **Channel table** — one row per channel, sortable by airings/stories aired, with search and min-airings filter. Same trend sparkline shape so rows compare visually.
 - **Longevity stat** — for each story whose publish date is ≥24h before the dataset's end, the percentage of airings that happened *after* the first 24 hours from publish. Higher = the story had legs and kept being aired; lower = bursty pickup that died. Producers sort by this to find stories worth a follow-up.
 - **Story detail modal** — click any row to see a full-size trend chart, six-card stats grid (airings, channels, countries, days in rotation, total air time, longevity), top channel / top country / average clip length, and a paginated channel breakdown.
-- **Insights panel** — top 10 stories, channels, and countries at a glance.
+- **Channel detail modal** — click any channel row to see its full trend chart, stats grid, top story, last-aired time, and a paginated list of every Reuters story that channel aired.
+- **Insights panel** — top 10 stories, channels, and countries at a glance. Click a top channel to open its detail modal.
 - **Export** — download the aggregated summary as a clean Excel file.
 
 Stories are identified by the Reuters producer-style slug: first 4 digits of the story ID prepended to the slug (e.g. `5890-USA-SCREWWORM/`).
