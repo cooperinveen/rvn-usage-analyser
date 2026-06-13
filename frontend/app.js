@@ -759,29 +759,18 @@ channelModal.addEventListener('click', e => { if (e.target === channelModal) clo
 
 function renderChannelModalBody(c) {
     const trendChart = renderTrendChart(c.trend, state.trendLabels, state.trendUnit);
-    const topStory = c.all_stories?.[0];
     const pie = renderCountryPie(c.story_country_mix);
-
-    const miniPanel = `
-        <ul class="modal-mini-panel">
-            ${topStory ? `<li><span class="mini-label">Top story</span><span class="mini-value">${escHtml(displaySlug(topStory))} <span class="mini-sub">(${topStory.airings.toLocaleString()} airings)</span></span></li>` : ''}
-            <li><span class="mini-label">Avg clip used</span><span class="mini-value">${escHtml(c.avg_clip)}</span></li>
-        </ul>
-    `;
 
     chModalBody.innerHTML = `
         <div class="modal-section">
             <div class="modal-overview">
                 <div class="modal-overview-stats">
-                    <h4 class="pie-title">Story origins by airings</h4>
                     ${pie || '<p class="pie-empty">No country data available.</p>'}
                 </div>
                 ${trendChart ? `
                 <div class="modal-overview-chart">
                     <div class="trend-chart-wrap">${trendChart}</div>
-                    ${miniPanel}
-                </div>` : `
-                <div class="modal-overview-chart">${miniPanel}</div>`}
+                </div>` : ''}
             </div>
         </div>
 
