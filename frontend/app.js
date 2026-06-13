@@ -475,7 +475,7 @@ function renderChannelTable() {
 
     if (page.length === 0) {
         tbody.innerHTML = `
-            <tr><td colspan="6">
+            <tr><td colspan="7">
                 <div class="empty-state">
                     <p class="empty-state-text">No channels match your search</p>
                     <p class="empty-state-sub">Try a different keyword or clear your filters</p>
@@ -500,6 +500,7 @@ function renderChannelTable() {
                 </div>
             </td>
             <td class="col-num">${c.stories.toLocaleString()}</td>
+            <td class="col-significance">${significanceDisplay(c.significance)}</td>
             <td class="col-time">${escHtml(c.total_air_time)}</td>
             <td class="col-trend">${sparkline}</td>
         </tr>`;
@@ -972,11 +973,42 @@ function filterSuffix() {
     return parts.length ? '-' + parts.join('-') : '';
 }
 
+// Significance breakdown: the headline score plus the three sub-scores that
+// produced it, as labeled bars, so a producer can see *why* a channel ranks
+// where it does (e.g. high volume but narrow geography). All values are
+// server-cast ints 0–100 — safe in innerHTML.
+function renderSignificanceBreakdown(c) {
+    if (c.significance == null) return '';
+    const subs = [
+        ['Volume', c.sig_volume, 'How many airings, vs other channels'],
+        ['Breadth', c.sig_breadth, 'How many distinct stories, vs other channels'],
+        ['Diversity', c.sig_diversity, 'How geographically spread the stories are'],
+    ];
+    const bars = subs.map(([label, v, tip]) => `
+        <div class="sig-sub" title="${tip}">
+            <span class="sig-sub-label">${label}</span>
+            <span class="sig-sub-track"><span class="sig-sub-fill" style="width:${v == null ? 0 : v}%"></span></span>
+            <span class="sig-sub-val">${v == null ? '—' : v}</span>
+        </div>`).join('');
+    return `
+        <div class="modal-section sig-breakdown">
+            <div class="sig-headline">
+                ${significanceDisplay(c.significance, true)}
+                <div class="sig-headline-text">
+                    <span class="sig-headline-title">Significance ${c.significance}/100</span>
+                    <span class="sig-headline-sub">Volume + story breadth + geographic diversity, ranked within this upload</span>
+                </div>
+            </div>
+            <div class="sig-subs">${bars}</div>
+        </div>`;
+}
+
 function renderChannelModalBody(c) {
     const trendChart = renderTrendChart(c.trend, state.trendLabels, state.trendUnit);
     const pie = renderCountryPie(c.story_country_mix);
 
     chModalBody.innerHTML = `
+        ${renderSignificanceBreakdown(c)}
         <div class="modal-section">
             <div class="modal-overview">
                 <div class="modal-overview-stats">
@@ -1365,6 +1397,16 @@ function longevityDisplay(pct, plain) {
     const cls = pct >= 60 ? 'longevity-high' : pct >= 30 ? 'longevity-mid' : 'longevity-low';
     const variant = plain ? 'longevity-plain' : '';
     return `<span class="longevity ${cls} ${variant}" title="${pct}% of airings happened after the first 24h">${pct}%</span>`;
+}
+
+// Composite 0–100 channel significance — volume + story breadth + geographic
+// diversity, each percentile-ranked within this dataset then averaged. Same
+// pill idiom as longevity so the two columns read consistently.
+function significanceDisplay(score, plain) {
+    if (score == null) return `<span class="significance significance-na" title="No significance score">—</span>`;
+    const cls = score >= 66 ? 'significance-high' : score >= 33 ? 'significance-mid' : 'significance-low';
+    const variant = plain ? 'significance-plain' : '';
+    return `<span class="significance ${cls} ${variant}" title="Composite of airings volume, story breadth, and geographic diversity (0–100, relative to this dataset)">${score}</span>`;
 }
 
 function renderTrendChart(counts, labels, unit) {

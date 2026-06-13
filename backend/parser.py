@@ -23,6 +23,12 @@ COL_ALIASES = {
     'activation_date': ['Asset: Activation date start (UTC)', 'assetActivationDateStartUtc'],
 }
 
+# Below this many airings, a channel's measured story-origin diversity is mostly
+# noise (3 airings from 3 countries is not a "diverse slate"). The significance
+# score damps raw diversity by min(1, airings / SIG_DIVERSITY_MIN_AIRINGS) so a
+# tiny sample can't score perfect diversity. One-word tuning knob.
+SIG_DIVERSITY_MIN_AIRINGS = 10
+
 
 def _resolve_columns(df):
     """Map dataframe columns to internal keys using aliases."""
@@ -69,6 +75,36 @@ def _seconds_to_hms(seconds):
         h, rem = divmod(seconds, 3600)
         m = rem // 60
         return f"{h}h {m}m"
+
+
+def _percentile_ranks(values):
+    """Map each value to its percentile rank (0–100) among the list, using
+    average rank for ties. The lowest value scores 0, the highest 100; a value
+    at the median lands near 50. Used to put airings/breadth/diversity on a
+    common, long-tail-resistant scale before averaging them into significance.
+
+    With a single element percentile is undefined — return [100.0] so a lone
+    channel is "fully significant" rather than 0.
+    """
+    n = len(values)
+    if n == 0:
+        return []
+    if n == 1:
+        return [100.0]
+    order = sorted(range(n), key=lambda i: values[i])
+    ranks = [0.0] * n
+    i = 0
+    while i < n:
+        j = i
+        # Group ties so equal values share one averaged rank.
+        while j + 1 < n and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        avg_rank = (i + j) / 2.0  # 0-based average position within the tie group
+        pct = 100.0 * avg_rank / (n - 1)
+        for k in range(i, j + 1):
+            ranks[order[k]] = pct
+        i = j + 1
+    return ranks
 
 
 def _country_from_slug(slug):
@@ -444,6 +480,19 @@ def parse_file(file_bytes, filename):
         for row in all_stories:
             origin = row['origin_country']
             mix_counts[origin] += int(row['airings'])
+        # Story-origin diversity (Gini-Simpson, 1 − Σpᵢ²) over the FULL country
+        # mix — before the top-8 truncation below, so a channel airing 20
+        # countries isn't flattened to "8 + Other". 0 = all from one origin,
+        # →1 = evenly spread. Damped for small samples so a 3-airing channel
+        # can't fake a diverse slate (see SIG_DIVERSITY_MIN_AIRINGS).
+        total_mix = sum(mix_counts.values())
+        if total_mix > 0:
+            simpson = sum((v / total_mix) ** 2 for v in mix_counts.values())
+            diversity_raw = 1.0 - simpson
+        else:
+            diversity_raw = 0.0
+        diversity_raw *= min(1.0, ch_airings / SIG_DIVERSITY_MIN_AIRINGS)
+
         mix_sorted = sorted(mix_counts.items(), key=lambda kv: kv[1], reverse=True)
         # Top 8 + Other so the pie stays readable.
         if len(mix_sorted) > 8:
@@ -479,7 +528,25 @@ def parse_file(file_bytes, filename):
             'all_stories': all_stories,
             'story_country_mix': story_country_mix,
             'trend': ch_trend,
+            '_diversity_raw': diversity_raw,  # temp; dropped after percentile pass
         })
+
+    # --- Significance score ---------------------------------------------------
+    # Composite 0–100 per channel: the mean of three percentile sub-scores —
+    # volume (airings), breadth (distinct stories), and story-origin diversity.
+    # Percentile-ranking each signal first keeps the long-tailed airings count
+    # from quietly dominating (which would make this just an airings ranking).
+    # Dataset-relative: a channel's score depends on the other channels present.
+    if channels_out:
+        vol_pct = _percentile_ranks([c['airings'] for c in channels_out])
+        brd_pct = _percentile_ranks([c['stories'] for c in channels_out])
+        div_pct = _percentile_ranks([c['_diversity_raw'] for c in channels_out])
+        for i, c in enumerate(channels_out):
+            c['sig_volume'] = int(round(vol_pct[i]))
+            c['sig_breadth'] = int(round(brd_pct[i]))
+            c['sig_diversity'] = int(round(div_pct[i]))
+            c['significance'] = int(round((vol_pct[i] + brd_pct[i] + div_pct[i]) / 3.0))
+            del c['_diversity_raw']
 
     channels_out.sort(key=lambda x: x['airings'], reverse=True)
 
@@ -586,11 +653,11 @@ def generate_top_export(kind, rows, title=None):
     if kind == 'channels':
         ws.title = title or "Top Channels"
         headers = [
-            'Channel', 'Country', 'Airings', 'Stories Aired',
+            'Channel', 'Country', 'Airings', 'Stories Aired', 'Significance',
             'Total Air Time', 'Avg Clip Used', 'Days Active',
             'First Seen', 'Last Seen', 'Top Story',
         ]
-        col_widths = [30, 18, 10, 14, 16, 14, 12, 20, 20, 40]
+        col_widths = [30, 18, 10, 14, 13, 16, 14, 12, 20, 20, 40]
 
         def row_for(c):
             top_story = (c.get('all_stories') or [{}])[0]
@@ -605,6 +672,7 @@ def generate_top_export(kind, rows, title=None):
                 c.get('country', ''),
                 c.get('airings', 0),
                 c.get('stories', 0),
+                c.get('significance', ''),
                 c.get('total_air_time', ''),
                 c.get('avg_clip', ''),
                 c.get('days_active', 0),
