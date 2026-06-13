@@ -757,6 +757,120 @@ function closeChannelModal() {
 $('ch-modal-close').addEventListener('click', closeChannelModal);
 channelModal.addEventListener('click', e => { if (e.target === channelModal) closeChannelModal(); });
 
+// ── Channel modal: download view as PNG ────────────────────────────────────
+// Expands the paginated story list to render every filtered row, hides the
+// download/close controls (they don't belong in the export), captures the
+// whole modal at 2x scale via html2canvas, then restores the previous DOM
+// state. Filename includes channel + active filters so two downloads from
+// the same channel don't collide.
+$('ch-modal-download').addEventListener('click', async () => {
+    if (typeof html2canvas === 'undefined') {
+        showToast('Image library still loading — try again in a moment.');
+        return;
+    }
+    const modal = channelModal.querySelector('.modal');
+    if (!modal) return;
+
+    const downloadBtn = $('ch-modal-download');
+    const closeBtn = $('ch-modal-close');
+    const footer = modal.querySelector('.modal-footer');
+    const tbody = document.getElementById('ch-modal-story-tbody');
+    const pagination = document.getElementById('ch-modal-story-pagination');
+    const body = modal.querySelector('.modal-body');
+
+    // Snapshot mutable bits before we touch them
+    const stash = {
+        tbodyHTML: tbody ? tbody.innerHTML : '',
+        paginationHTML: pagination ? pagination.innerHTML : '',
+        bodyMaxHeight: body ? body.style.maxHeight : '',
+        bodyOverflow: body ? body.style.overflowY : '',
+        modalMaxHeight: modal.style.maxHeight,
+        modalOverflow: modal.style.overflow,
+        footerDisplay: footer ? footer.style.display : '',
+        closeDisplay: closeBtn ? closeBtn.style.display : '',
+    };
+
+    downloadBtn.disabled = true;
+    downloadBtn.classList.add('is-loading');
+    showToast('Preparing image…');
+
+    try {
+        // 1. Expand the story list to ALL filtered rows (no pagination).
+        if (tbody) {
+            const all = state.chModalStories || [];
+            tbody.innerHTML = all.map(s => `
+                <tr>
+                    <td>
+                        <div class="slug-main">${escHtml(displaySlug(s))}</div>
+                        ${s.headline ? `<div class="slug-headline">${escHtml(s.headline)}</div>` : ''}
+                    </td>
+                    <td class="num">${s.airings}</td>
+                    <td class="num">${escHtml(s.air_time)}</td>
+                </tr>`).join('') || stash.tbodyHTML;
+        }
+        if (pagination) pagination.innerHTML = '';
+
+        // 2. Let the modal grow to its natural height so the whole thing renders
+        //    in one shot (no internal scroll cut-off).
+        if (body) { body.style.maxHeight = 'none'; body.style.overflowY = 'visible'; }
+        modal.style.maxHeight = 'none';
+        modal.style.overflow = 'visible';
+
+        // 3. Hide the chrome we don't want in the export.
+        if (footer) footer.style.display = 'none';
+        if (closeBtn) closeBtn.style.display = 'none';
+
+        // 4. Force a layout pass so html2canvas sees the new heights.
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const canvas = await html2canvas(modal, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+            // Match the on-screen size; the scale factor handles retina sharpness.
+            windowWidth: document.documentElement.clientWidth,
+        });
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${slugifyForFilename(chModalName.textContent)}${filterSuffix()}.png`;
+        a.click();
+        showToast('Image downloaded.');
+    } catch (err) {
+        console.error('Download failed:', err);
+        showToast('Sorry — image export failed. Try again?');
+    } finally {
+        // Restore everything we changed
+        if (tbody) tbody.innerHTML = stash.tbodyHTML;
+        if (pagination) pagination.innerHTML = stash.paginationHTML;
+        if (body) {
+            body.style.maxHeight = stash.bodyMaxHeight;
+            body.style.overflowY = stash.bodyOverflow;
+        }
+        modal.style.maxHeight = stash.modalMaxHeight;
+        modal.style.overflow = stash.modalOverflow;
+        if (footer) footer.style.display = stash.footerDisplay;
+        if (closeBtn) closeBtn.style.display = stash.closeDisplay;
+        downloadBtn.disabled = false;
+        downloadBtn.classList.remove('is-loading');
+    }
+});
+
+function slugifyForFilename(s) {
+    return (s || 'channel').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'channel';
+}
+
+function filterSuffix() {
+    const parts = [];
+    if (state.chModalRegion && state.chModalRegion !== 'all') {
+        parts.push(slugifyForFilename(state.chModalRegion));
+    }
+    if (state.chModalCountry) parts.push(slugifyForFilename(state.chModalCountry));
+    return parts.length ? '-' + parts.join('-') : '';
+}
+
 function renderChannelModalBody(c) {
     const trendChart = renderTrendChart(c.trend, state.trendLabels, state.trendUnit);
     const pie = renderCountryPie(c.story_country_mix);
