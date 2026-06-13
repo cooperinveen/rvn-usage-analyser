@@ -778,6 +778,49 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
 
 /* Modal sections */
 .modal-section { margin-bottom: 28px; }
+
+/* "On this day" panel — diagnostic context for the story's publish day. */
+.modal-day-context { background: var(--tr-bg); border-radius: var(--radius-lg); padding: 16px 18px; }
+.day-context-caption {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--tr-text-light); margin-bottom: 4px;
+}
+.day-context-sub { font-size: 12px; color: var(--tr-text-light); margin-bottom: 12px; }
+.day-context-empty { font-size: 13px; color: var(--tr-text-light); padding: 4px 0; }
+.day-context-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.day-context-row {
+    display: grid;
+    grid-template-columns: 24px 1fr auto 120px 40px;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    border-left: 2px solid transparent;
+}
+.day-context-row.is-current { border-left-color: var(--tr-orange); background: rgba(214, 64, 0, 0.06); }
+.day-context-row .day-rank { color: var(--tr-text-light); font-variant-numeric: tabular-nums; }
+.day-context-row .day-family { font-weight: 600; color: var(--tr-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day-context-row.is-current .day-family { color: var(--tr-orange); }
+.day-context-row .day-this-story {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--tr-orange);
+}
+.day-context-row .day-airings { color: var(--tr-text-light); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.day-context-row .day-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, var(--tr-orange) var(--bar-pct, 0%), rgba(214, 64, 0, 0.12) var(--bar-pct, 0%));
+}
+.day-context-row .day-pct { color: var(--tr-text); font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.day-context-overflow { margin-top: 10px; font-size: 12px; color: var(--tr-text-light); }
+@media (max-width: 640px) {
+    .day-context-row { grid-template-columns: 22px 1fr auto; }
+    .day-context-row .day-bar, .day-context-row .day-pct { display: none; }
+}
+
 .modal-section-title {
     font-size: 11px;
     font-weight: 700;

@@ -18,9 +18,9 @@ Upload a `.csv` or `.xlsx` export → get:
 - **Channel table** — one row per channel, sortable by airings/stories aired, with search and min-airings filter. Same trend sparkline shape so rows compare visually.
 - **Longevity stat** — for each story whose publish date is ≥24h before the dataset's end, the percentage of airings that happened *after* the first 24 hours from publish. Higher = the story had legs and kept being aired; lower = bursty pickup that died. Producers sort by this to find stories worth a follow-up.
 - **Story detail modal** — click any row to see a full-size trend chart, six-card stats grid (airings, channels, countries, days in rotation, total air time, longevity), top channel / top country / average clip length, and a paginated channel breakdown.
-- **Channel detail modal** — click any channel row to see its full trend chart, stats grid, top story, last-aired time, and a paginated list of every Reuters story that channel aired.
+- **Channel detail modal** — click any channel row to see a full trend chart, a story-origin pie chart, and a paginated list of every Reuters story that channel aired. The story list is filterable two ways: region pills (Europe / Americas / Asia Pacific / Middle East / Africa) and a **clickable pie** — click a slice (e.g. IRAN) and the list shrinks to that country's stories. Filters compose. A **Download view** button exports the whole modal — header, charts, filtered story list — as a single PNG for sharing.
 - **Insights panel** — top 10 stories, channels, and countries at a glance. Click a top channel to open its detail modal.
-- **Export** — download the aggregated summary as a clean Excel file.
+- **Export** — download the aggregated summary as a clean Excel file. Split-button picker lets you choose top 25 / 50 / 100 rows for whichever view is active.
 
 Stories are identified by the Reuters producer-style slug: first 4 digits of the story ID prepended to the slug (e.g. `5890-USA-SCREWWORM/`).
 
@@ -86,6 +86,8 @@ frontend/
   login.html          Sign-in screen with Microsoft button (rendered on auth errors)
   style.css           Reuters branding + all layout
   app.js              All client logic
+  html2canvas.min.js  Vendored — used for modal PNG export. Not loaded via CDN
+                      because vercel.json sets script-src 'self'
 docs/                 Teletrax API reference (local only, gitignored)
 requirements.txt      Python dependencies (root-level, required by Vercel)
 vercel.json           Routing — blob-upload.js → Node, everything else → Python

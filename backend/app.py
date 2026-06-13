@@ -128,6 +128,7 @@ def upload():
         'date_range': data['date_range'],
         'trend_labels': data['trend_labels'],
         'trend_unit': data['trend_unit'],
+        'day_context': data.get('day_context', {}),
     })
 
 
@@ -199,6 +200,7 @@ def process_blob():
         'date_range': data['date_range'],
         'trend_labels': data['trend_labels'],
         'trend_unit': data['trend_unit'],
+        'day_context': data.get('day_context', {}),
     })
 
 

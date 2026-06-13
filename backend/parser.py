@@ -86,6 +86,21 @@ def _country_from_slug(slug):
     return tokens[0] if tokens else 'Other'
 
 
+def _slug_family(slug):
+    """Topic stem of the slug — everything before the '/'.
+    USA-SCREWWORM/EGGS-EMBARGO → 'USA-SCREWWORM'. Same ADVISORY /
+    CORRECTION / numeric-prefix stripping as _country_from_slug, but
+    keeps the full hyphenated stem rather than just the first token."""
+    if not slug:
+        return 'Other'
+    import re
+    s = str(slug).upper()
+    s = re.sub(r'^(ADVISORY|CORRECTION)[-\s]+', '', s).strip()
+    s = re.sub(r'^\d+[A-Z]{0,4}\s+', '', s)
+    stem = s.split('/')[0].strip().strip('-')
+    return stem if stem else 'Other'
+
+
 def _region_from_slug(slug):
     """Derive editorial regions from slug (e.g. USA-CHINA/TARIFFS → {Americas, Asia Pacific}).
     Returns a set — stories can belong to multiple regions."""
@@ -354,10 +369,38 @@ def parse_file(file_bytes, filename):
             'longevity': longevity_pct,
             'publish_time': publish_time.strftime('%d %b %Y %H:%M') if pd.notna(publish_time) else '',
             'publish_ts': int(publish_time.timestamp()) if pd.notna(publish_time) else None,
+            'publish_day': publish_time.strftime('%Y-%m-%d') if pd.notna(publish_time) else None,
+            'family': _slug_family(slug),
         })
 
     # Sort by airings descending
     stories.sort(key=lambda x: x['airings'], reverse=True)
+
+    # --- Day context: what else was published on the same day? ---
+    # Answers "did my story land on a crowded news day, or a quiet one?"
+    # Groups by publish day (UTC) and slug family — IRAN-CRISIS, USA-TARIFFS, etc.
+    # "The day's airings" deliberately means airings of stories *published* that
+    # day, not all airings observed that day — we want the editorial weather at
+    # publish, not every story still in rotation.
+    day_context = {}
+    if '_activation' in df.columns:
+        pub = df.dropna(subset=['_activation']).copy()
+        if len(pub):
+            pub['_publish_day'] = pub['_activation'].dt.tz_convert('UTC').dt.strftime('%Y-%m-%d')
+            pub['_family'] = pub['_slug'].map(_slug_family)
+            fam_counts = pub.groupby(['_publish_day', '_family']).size().reset_index(name='airings')
+            for day, day_grp in fam_counts.groupby('_publish_day'):
+                day_grp = day_grp.sort_values('airings', ascending=False)
+                total = int(day_grp['airings'].sum())
+                top = [
+                    {'family': r['_family'], 'airings': int(r['airings'])}
+                    for _, r in day_grp.head(5).iterrows()
+                ]
+                day_context[day] = {
+                    'total_airings': total,
+                    'family_count': int(len(day_grp)),
+                    'top_families': top,
+                }
 
     # --- Aggregate per channel ---
     # One entry per channel: airings, distinct stories, air time, trend sparkline,
@@ -496,6 +539,7 @@ def parse_file(file_bytes, filename):
         'date_range': date_range,
         'trend_labels': trend_labels,
         'trend_unit': trend_unit,
+        'day_context': day_context,
     }
 
 

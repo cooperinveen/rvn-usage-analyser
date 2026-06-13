@@ -158,6 +158,7 @@ function loadData(data) {
     state.dateRange = data.date_range;
     state.trendLabels = data.trend_labels || [];
     state.trendUnit = data.trend_unit || 'day';
+    state.dayContext = data.day_context || {};
     state.currentPage = 1;
     state.chCurrentPage = 1;
     state.searchQuery = '';
@@ -566,6 +567,8 @@ function renderModalBody(s) {
         </ul>
     `;
 
+    const dayContextSection = renderDayContext(s);
+
     modalBody.innerHTML = `
         <!-- 1. Headline stats + trend chart (side-by-side) -->
         <div class="modal-section">
@@ -607,7 +610,9 @@ function renderModalBody(s) {
             </div>
         </div>
 
-        <!-- 2. Channel Breakdown (paginated) -->
+        ${dayContextSection}
+
+        <!-- 3. Channel Breakdown (paginated) -->
         <div class="modal-section">
             <div class="modal-table-wrap">
                 <table class="modal-table">
@@ -623,6 +628,71 @@ function renderModalBody(s) {
     state.modalChannels = s.all_channels;
     state.modalChannelPage = 1;
     renderModalChannelPage();
+}
+
+// "On this day" panel: ranks the top slug families published the same UTC
+// calendar day as this story, so producers can tell whether the story
+// landed in a quiet news day or a crowded one (e.g. IRAN-CRISIS dominating).
+// Returns '' (skips the section entirely) when there's no publish day or
+// the backend didn't include this day in day_context.
+function renderDayContext(s) {
+    if (!s.publish_day) return '';
+    const day = state.dayContext?.[s.publish_day];
+    if (!day || !day.top_families?.length) return '';
+
+    const total = day.total_airings || 0;
+    const fams = day.top_families;
+    const inTop = fams.some(f => f.family === s.family);
+    const selfRow = (!inTop && s.family)
+        ? fams.concat([{ family: s.family, airings: s.airings, _rank: '–' }])
+        : fams;
+    const extra = Math.max(0, (day.family_count || 0) - fams.length);
+
+    const dateLabel = formatDayLabel(s.publish_day);
+    const onlyOne = fams.length === 1 && fams[0].family === s.family;
+
+    if (onlyOne) {
+        return `
+            <div class="modal-section modal-day-context">
+                <div class="day-context-caption">On this day · ${escHtml(dateLabel)}</div>
+                <div class="day-context-empty">Only Reuters story published this day.</div>
+            </div>
+        `;
+    }
+
+    const rows = selfRow.map((f, i) => {
+        const isCurrent = f.family === s.family;
+        const pct = total > 0 ? Math.round(100 * f.airings / total) : 0;
+        const rank = f._rank ?? (i + 1);
+        return `
+            <li class="day-context-row${isCurrent ? ' is-current' : ''}">
+                <span class="day-rank">${escHtml(String(rank))}.</span>
+                <span class="day-family">${escHtml(f.family)}${isCurrent ? ' <span class="day-this-story">this story</span>' : ''}</span>
+                <span class="day-airings">${f.airings.toLocaleString()} airings</span>
+                <span class="day-bar" style="--bar-pct: ${pct}%"></span>
+                <span class="day-pct">${pct}%</span>
+            </li>
+        `;
+    }).join('');
+
+    return `
+        <div class="modal-section modal-day-context">
+            <div class="day-context-caption">On this day · ${escHtml(dateLabel)}</div>
+            <div class="day-context-sub">${(day.family_count || fams.length).toLocaleString()} slug families · ${total.toLocaleString()} airings total</div>
+            <ul class="day-context-list">${rows}</ul>
+            ${extra > 0 ? `<div class="day-context-overflow">+ ${extra.toLocaleString()} more ${extra === 1 ? 'family' : 'families'} that day</div>` : ''}
+        </div>
+    `;
+}
+
+function formatDayLabel(ymd) {
+    // ymd: 'YYYY-MM-DD' (UTC). Render as '13 Jun 2026' without timezone shifting.
+    const parts = String(ymd).split('-');
+    if (parts.length !== 3) return ymd;
+    const [y, m, d] = parts.map(Number);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return ymd;
+    return `${d} ${months[m - 1] || ''} ${y}`.trim();
 }
 
 const MODAL_PAGE_SIZE = 10;
