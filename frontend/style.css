@@ -437,9 +437,9 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
 .significance-low  { color: var(--tr-text-light); background: var(--tr-bg); }
 .significance-na   { color: var(--tr-text-light); background: transparent; font-weight: 400; }
 
-/* Significance breakdown panel in the channel modal */
-.sig-breakdown { display: flex; flex-direction: column; gap: 12px; }
-.sig-headline { display: flex; align-items: center; gap: 12px; }
+/* Significance rail — compact left column of the channel-modal overview row */
+.modal-overview-sig { display: flex; flex-direction: column; gap: 12px; }
+.sig-rail-head { display: flex; align-items: center; gap: 10px; }
 .significance-plain {
     background: transparent;
     padding: 0;
@@ -448,13 +448,12 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
     line-height: 1;
     color: var(--tr-racing-green);
 }
-.sig-headline-text { display: flex; flex-direction: column; gap: 2px; }
-.sig-headline-title { font-weight: 700; color: var(--tr-text); font-size: 15px; }
-.sig-headline-sub { font-size: 12px; color: var(--tr-text-light); }
-.sig-subs { display: flex; flex-direction: column; gap: 6px; max-width: 460px; }
-.sig-sub { display: grid; grid-template-columns: 76px 1fr 32px; align-items: center; gap: 10px; }
-.sig-sub-label { font-size: 12px; color: var(--tr-text-light); }
-.sig-sub-track { height: 8px; background: var(--tr-bg); border-radius: 4px; overflow: hidden; }
+.sig-rail-label { display: flex; flex-direction: column; font-weight: 700; color: var(--tr-text); font-size: 13px; line-height: 1.2; }
+.sig-rail-label small { font-weight: 400; font-size: 11px; color: var(--tr-text-light); }
+.sig-subs { display: flex; flex-direction: column; gap: 7px; }
+.sig-sub { display: grid; grid-template-columns: 56px 1fr 26px; align-items: center; gap: 8px; }
+.sig-sub-label { font-size: 11px; color: var(--tr-text-light); }
+.sig-sub-track { height: 7px; background: var(--tr-bg); border-radius: 4px; overflow: hidden; }
 .sig-sub-fill { display: block; height: 100%; background: var(--tr-orange); border-radius: 4px; }
 .sig-sub-val { font-size: 12px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; color: var(--tr-text); }
 
@@ -481,6 +480,10 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
     gap: 24px;
     align-items: start;
     margin-bottom: 16px;
+}
+/* Significance rail + pie + trend share the row as visual peers */
+.modal-overview-3col {
+    grid-template-columns: minmax(180px, 0.7fr) minmax(240px, 1fr) minmax(260px, 1.3fr);
 }
 .modal-overview-stats .modal-section-title,
 .modal-overview-chart .modal-section-title {
@@ -532,7 +535,8 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 @media (max-width: 720px) {
-    .modal-overview { grid-template-columns: 1fr; gap: 16px; }
+    .modal-overview,
+    .modal-overview-3col { grid-template-columns: 1fr; gap: 16px; }
 }
 
 /* Channel modal country pie */

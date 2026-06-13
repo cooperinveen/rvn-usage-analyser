@@ -973,11 +973,12 @@ function filterSuffix() {
     return parts.length ? '-' + parts.join('-') : '';
 }
 
-// Significance breakdown: the headline score plus the three sub-scores that
-// produced it, as labeled bars, so a producer can see *why* a channel ranks
-// where it does (e.g. high volume but narrow geography). All values are
-// server-cast ints 0–100 — safe in innerHTML.
-function renderSignificanceBreakdown(c) {
+// Significance rail: a compact left column for the overview row — the score
+// stacked over its three sub-scores as narrow labeled bars, so a producer can
+// see *why* a channel ranks where it does (e.g. high volume but narrow
+// geography) without it dominating the pie/trend charts beside it. All values
+// are server-cast ints 0–100 — safe in innerHTML.
+function renderSignificanceRail(c) {
     if (c.significance == null) return '';
     const subs = [
         ['Volume', c.sig_volume, 'How many airings, vs other channels'],
@@ -991,13 +992,10 @@ function renderSignificanceBreakdown(c) {
             <span class="sig-sub-val">${v == null ? '—' : v}</span>
         </div>`).join('');
     return `
-        <div class="modal-section sig-breakdown">
-            <div class="sig-headline">
+        <div class="modal-overview-sig">
+            <div class="sig-rail-head">
                 ${significanceDisplay(c.significance, true)}
-                <div class="sig-headline-text">
-                    <span class="sig-headline-title">Significance ${c.significance}/100</span>
-                    <span class="sig-headline-sub">Volume + story breadth + geographic diversity, ranked within this upload</span>
-                </div>
+                <span class="sig-rail-label">Significance<small>ranked within this upload</small></span>
             </div>
             <div class="sig-subs">${bars}</div>
         </div>`;
@@ -1006,11 +1004,12 @@ function renderSignificanceBreakdown(c) {
 function renderChannelModalBody(c) {
     const trendChart = renderTrendChart(c.trend, state.trendLabels, state.trendUnit);
     const pie = renderCountryPie(c.story_country_mix);
+    const sigRail = renderSignificanceRail(c);
 
     chModalBody.innerHTML = `
-        ${renderSignificanceBreakdown(c)}
         <div class="modal-section">
-            <div class="modal-overview">
+            <div class="modal-overview${sigRail ? ' modal-overview-3col' : ''}">
+                ${sigRail}
                 <div class="modal-overview-stats">
                     ${pie || '<p class="pie-empty">No country data available.</p>'}
                 </div>
