@@ -630,28 +630,23 @@ function renderModalBody(s) {
     renderModalChannelPage();
 }
 
-// "On this day" panel: ranks the top slug families published the same UTC
-// calendar day as this story, so producers can tell whether the story
-// landed in a quiet news day or a crowded one (e.g. IRAN-CRISIS dominating).
-// Returns '' (skips the section entirely) when there's no publish day or
-// the backend didn't include this day in day_context.
+// "On this day" panel: stacked horizontal bar of the top slug families
+// published the same UTC day as this story, so producers can see at a
+// glance whether the story landed in a quiet news day or one dominated
+// by a big editorial event (e.g. IRAN-CRISIS). The current story's
+// family is outlined in Racing Green wherever it sits in the bar.
+// Family names appear on hover via the title attribute — kept minimal
+// to mirror the channel-modal aesthetic.
 function renderDayContext(s) {
     if (!s.publish_day) return '';
     const day = state.dayContext?.[s.publish_day];
     if (!day || !day.top_families?.length) return '';
-
     const total = day.total_airings || 0;
-    const fams = day.top_families;
-    const inTop = fams.some(f => f.family === s.family);
-    const selfRow = (!inTop && s.family)
-        ? fams.concat([{ family: s.family, airings: s.airings, _rank: '–' }])
-        : fams;
-    const extra = Math.max(0, (day.family_count || 0) - fams.length);
+    if (total === 0) return '';
 
     const dateLabel = formatDayLabel(s.publish_day);
-    const onlyOne = fams.length === 1 && fams[0].family === s.family;
 
-    if (onlyOne) {
+    if (day.family_count === 1) {
         return `
             <div class="modal-section modal-day-context">
                 <div class="day-context-caption">On this day · ${escHtml(dateLabel)}</div>
@@ -660,27 +655,67 @@ function renderDayContext(s) {
         `;
     }
 
-    const rows = selfRow.map((f, i) => {
-        const isCurrent = f.family === s.family;
-        const pct = total > 0 ? Math.round(100 * f.airings / total) : 0;
-        const rank = f._rank ?? (i + 1);
-        return `
-            <li class="day-context-row${isCurrent ? ' is-current' : ''}">
-                <span class="day-rank">${escHtml(String(rank))}.</span>
-                <span class="day-family">${escHtml(f.family)}${isCurrent ? ' <span class="day-this-story">this story</span>' : ''}</span>
-                <span class="day-airings">${f.airings.toLocaleString()} airings</span>
-                <span class="day-bar" style="--bar-pct: ${pct}%"></span>
-                <span class="day-pct">${pct}%</span>
-            </li>
-        `;
+    const top = day.top_families;
+    const topSum = top.reduce((a, f) => a + (f.airings || 0), 0);
+    const inTop = top.some(f => f.family === s.family);
+
+    const segments = top.map((f, i) => ({
+        family: f.family,
+        pct: 100 * f.airings / total,
+        rankClass: `rank-${i + 1}`,
+        isCurrent: f.family === s.family,
+        isOther: false,
+    }));
+
+    let otherAirings = Math.max(0, total - topSum);
+
+    // If the current story's family is outside the top 5, peel it out of
+    // Other into its own segment so producers can always find their story
+    // in the bar. s.airings is a proxy for the family's day airings —
+    // slight underestimate only when the family has multiple stories that
+    // day all outside the top 5 (rare).
+    if (!inTop && s.family) {
+        const selfAirings = Math.min(s.airings || 0, otherAirings);
+        if (selfAirings > 0) {
+            segments.push({
+                family: s.family,
+                pct: 100 * selfAirings / total,
+                rankClass: 'rank-self',
+                isCurrent: true,
+                isOther: false,
+            });
+            otherAirings -= selfAirings;
+        }
+    }
+
+    if (otherAirings > 0) {
+        const remaining = day.family_count - top.length - (inTop ? 0 : 1);
+        segments.push({
+            family: remaining > 0 ? `Other (${remaining} ${remaining === 1 ? 'family' : 'families'})` : 'Other',
+            pct: 100 * otherAirings / total,
+            rankClass: 'is-other',
+            isCurrent: false,
+            isOther: true,
+        });
+    }
+
+    const bar = segments.map(seg => {
+        const showLabel = seg.pct >= 8;
+        const cls = [
+            'day-stack-seg',
+            seg.rankClass,
+            seg.isCurrent ? 'is-current' : '',
+        ].filter(Boolean).join(' ');
+        const tip = seg.isCurrent
+            ? `${seg.family} · ${seg.pct.toFixed(1)}% (this story)`
+            : `${seg.family} · ${seg.pct.toFixed(1)}%`;
+        return `<div class="${cls}" style="flex-grow: ${seg.pct.toFixed(3)};" title="${escHtml(tip)}">${showLabel ? `<span class="seg-pct">${Math.round(seg.pct)}%</span>` : ''}</div>`;
     }).join('');
 
     return `
         <div class="modal-section modal-day-context">
             <div class="day-context-caption">On this day · ${escHtml(dateLabel)}</div>
-            <div class="day-context-sub">${(day.family_count || fams.length).toLocaleString()} slug families · ${total.toLocaleString()} airings total</div>
-            <ul class="day-context-list">${rows}</ul>
-            ${extra > 0 ? `<div class="day-context-overflow">+ ${extra.toLocaleString()} more ${extra === 1 ? 'family' : 'families'} that day</div>` : ''}
+            <div class="day-stack-bar" role="img" aria-label="Family share of airings on ${escHtml(dateLabel)}">${bar}</div>
         </div>
     `;
 }
