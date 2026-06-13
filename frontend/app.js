@@ -973,43 +973,42 @@ function filterSuffix() {
     return parts.length ? '-' + parts.join('-') : '';
 }
 
-// Significance rail: a compact left column for the overview row — the score
-// stacked over its three sub-scores as narrow labeled bars, so a producer can
-// see *why* a channel ranks where it does (e.g. high volume but narrow
-// geography) without it dominating the pie/trend charts beside it. All values
+// Significance strip: one slim full-width band above the charts — the score on
+// the left, then the three sub-scores as side-by-side mini-gauges, so a producer
+// can see *why* a channel ranks where it does (e.g. high volume but narrow
+// geography) without the panel overtaking the pie/trend charts below. All values
 // are server-cast ints 0–100 — safe in innerHTML.
-function renderSignificanceRail(c) {
+function renderSignificanceStrip(c) {
     if (c.significance == null) return '';
     const subs = [
         ['Volume', c.sig_volume, 'How many airings, vs other channels'],
         ['Breadth', c.sig_breadth, 'How many distinct stories, vs other channels'],
         ['Diversity', c.sig_diversity, 'How geographically spread the stories are'],
     ];
-    const bars = subs.map(([label, v, tip]) => `
-        <div class="sig-sub" title="${tip}">
-            <span class="sig-sub-label">${label}</span>
-            <span class="sig-sub-track"><span class="sig-sub-fill" style="width:${v == null ? 0 : v}%"></span></span>
-            <span class="sig-sub-val">${v == null ? '—' : v}</span>
+    const gauges = subs.map(([label, v, tip]) => `
+        <div class="sig-gauge" title="${tip}">
+            <span class="sig-gauge-label">${label}</span>
+            <span class="sig-gauge-track"><span class="sig-gauge-fill" style="width:${v == null ? 0 : v}%"></span></span>
+            <span class="sig-gauge-val">${v == null ? '—' : v}</span>
         </div>`).join('');
     return `
-        <div class="modal-overview-sig">
-            <div class="sig-rail-head">
+        <div class="modal-section sig-strip">
+            <div class="sig-strip-head">
                 ${significanceDisplay(c.significance, true)}
-                <span class="sig-rail-label">Significance<small>ranked within this upload</small></span>
+                <span class="sig-strip-label">Significance<small>ranked within this upload</small></span>
             </div>
-            <div class="sig-subs">${bars}</div>
+            <div class="sig-gauges">${gauges}</div>
         </div>`;
 }
 
 function renderChannelModalBody(c) {
     const trendChart = renderTrendChart(c.trend, state.trendLabels, state.trendUnit);
     const pie = renderCountryPie(c.story_country_mix);
-    const sigRail = renderSignificanceRail(c);
 
     chModalBody.innerHTML = `
+        ${renderSignificanceStrip(c)}
         <div class="modal-section">
-            <div class="modal-overview${sigRail ? ' modal-overview-3col' : ''}">
-                ${sigRail}
+            <div class="modal-overview">
                 <div class="modal-overview-stats">
                     ${pie || '<p class="pie-empty">No country data available.</p>'}
                 </div>

@@ -437,9 +437,15 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
 .significance-low  { color: var(--tr-text-light); background: var(--tr-bg); }
 .significance-na   { color: var(--tr-text-light); background: transparent; font-weight: 400; }
 
-/* Significance rail — compact left column of the channel-modal overview row */
-.modal-overview-sig { display: flex; flex-direction: column; gap: 12px; }
-.sig-rail-head { display: flex; align-items: center; gap: 10px; }
+/* Significance strip — one slim full-width band above the channel-modal charts */
+.sig-strip {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+.sig-strip-head { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .significance-plain {
     background: transparent;
     padding: 0;
@@ -448,14 +454,15 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
     line-height: 1;
     color: var(--tr-racing-green);
 }
-.sig-rail-label { display: flex; flex-direction: column; font-weight: 700; color: var(--tr-text); font-size: 13px; line-height: 1.2; }
-.sig-rail-label small { font-weight: 400; font-size: 11px; color: var(--tr-text-light); }
-.sig-subs { display: flex; flex-direction: column; gap: 7px; }
-.sig-sub { display: grid; grid-template-columns: 56px 1fr 26px; align-items: center; gap: 8px; }
-.sig-sub-label { font-size: 11px; color: var(--tr-text-light); }
-.sig-sub-track { height: 7px; background: var(--tr-bg); border-radius: 4px; overflow: hidden; }
-.sig-sub-fill { display: block; height: 100%; background: var(--tr-orange); border-radius: 4px; }
-.sig-sub-val { font-size: 12px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; color: var(--tr-text); }
+.sig-strip-label { display: flex; flex-direction: column; font-weight: 700; color: var(--tr-text); font-size: 13px; line-height: 1.2; }
+.sig-strip-label small { font-weight: 400; font-size: 11px; color: var(--tr-text-light); }
+/* Sub-scores sit side by side, sharing the band's remaining width */
+.sig-gauges { display: flex; gap: 24px; flex: 1; min-width: 280px; }
+.sig-gauge { display: flex; align-items: center; gap: 8px; flex: 1; }
+.sig-gauge-label { font-size: 12px; color: var(--tr-text-light); white-space: nowrap; }
+.sig-gauge-track { flex: 1; height: 7px; min-width: 32px; background: var(--tr-bg); border-radius: 4px; overflow: hidden; }
+.sig-gauge-fill { display: block; height: 100%; background: var(--tr-orange); border-radius: 4px; }
+.sig-gauge-val { font-size: 12px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; color: var(--tr-text); min-width: 24px; }
 
 .sparkline { display: block; }
 .sparkline .spark-bar { fill: var(--tr-orange); }
@@ -480,10 +487,6 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
     gap: 24px;
     align-items: start;
     margin-bottom: 16px;
-}
-/* Significance rail + pie + trend share the row as visual peers */
-.modal-overview-3col {
-    grid-template-columns: minmax(180px, 0.7fr) minmax(240px, 1fr) minmax(260px, 1.3fr);
 }
 .modal-overview-stats .modal-section-title,
 .modal-overview-chart .modal-section-title {
@@ -535,8 +538,7 @@ td.col-significance { text-align: right; font-variant-numeric: tabular-nums; }
 }
 
 @media (max-width: 720px) {
-    .modal-overview,
-    .modal-overview-3col { grid-template-columns: 1fr; gap: 16px; }
+    .modal-overview { grid-template-columns: 1fr; gap: 16px; }
 }
 
 /* Channel modal country pie */
