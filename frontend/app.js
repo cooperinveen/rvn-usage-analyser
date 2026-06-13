@@ -730,7 +730,7 @@ function openChannelModal(channelName) {
     if (!c) return;
     chModalName.textContent = c.channel;
     chModalCountry.textContent = c.country || '';
-    chModalActive.textContent = c.first_seen ? `First seen ${c.first_seen}` : '';
+    chModalActive.textContent = '';
     // Each modal open starts with a clean slate — no filter leakage between channels
     state.chModalRegion = 'all';
     state.chModalCountry = null;
@@ -800,7 +800,6 @@ function renderChannelModalBody(c) {
                 </div>
                 <span class="results-count" id="ch-modal-story-count"></span>
             </div>
-            <div class="ch-modal-active-filters" id="ch-modal-active-filters"></div>
             <div class="modal-table-wrap">
                 <table class="modal-table">
                     <thead><tr><th>Story</th><th>Airings</th><th>Air Time</th></tr></thead>
@@ -922,32 +921,14 @@ function applyChannelModalFilters() {
     document.querySelectorAll('.pie-legend li[data-country]').forEach(li => {
         li.classList.toggle('pie-legend-selected', country != null && li.dataset.country === country);
     });
+    // Whole-pie dim toggle: when a country is selected, hold the same "rest of
+    // chart fades" look that exists on :hover so the selection itself is the
+    // filter indicator. Click the slice again (or change region) to clear.
+    document.querySelectorAll('.pie-chart').forEach(svg => {
+        svg.classList.toggle('pie-has-selection', country != null);
+    });
 
-    renderChModalActiveFilters();
     renderChannelModalStoryPage();
-}
-
-function renderChModalActiveFilters() {
-    const wrap = document.getElementById('ch-modal-active-filters');
-    if (!wrap) return;
-    const chips = [];
-    if (state.chModalRegion && state.chModalRegion !== 'all') {
-        chips.push(`<button class="filter-chip" data-clear-ch-filter="region">${escHtml(state.chModalRegion)} <span class="filter-chip-x">✕</span></button>`);
-    }
-    if (state.chModalCountry) {
-        chips.push(`<button class="filter-chip" data-clear-ch-filter="country">${escHtml(prettyCountry(state.chModalCountry))} <span class="filter-chip-x">✕</span></button>`);
-    }
-    if (chips.length >= 2) {
-        chips.push(`<button class="filter-chip filter-chip-clear-all" data-clear-ch-filter="all">Clear all</button>`);
-    }
-    wrap.innerHTML = chips.length ? `<span class="filter-chip-label">Filtered:</span>${chips.join('')}` : '';
-}
-
-// Slug rubrics are uppercase tokens (USA, IRAN). Title-case them for chip display
-// without touching the underlying value used for matching.
-function prettyCountry(c) {
-    if (!c) return '';
-    return c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
 }
 
 function renderChannelModalStoryPage() {
@@ -1001,7 +982,7 @@ chModalBody.addEventListener('click', e => {
         return;
     }
 
-    // 2. Pie slice or legend row → toggle country filter
+    // 2. Pie slice or legend row → toggle country filter (click again to clear)
     const slice = e.target.closest('.pie-chart path[data-country], .pie-legend li[data-country]');
     if (slice) {
         const country = slice.dataset.country;
@@ -1010,17 +991,7 @@ chModalBody.addEventListener('click', e => {
         return;
     }
 
-    // 3. Filter chip → clear region / country / both
-    const chip = e.target.closest('[data-clear-ch-filter]');
-    if (chip) {
-        const what = chip.dataset.clearChFilter;
-        if (what === 'region' || what === 'all') state.chModalRegion = 'all';
-        if (what === 'country' || what === 'all') state.chModalCountry = null;
-        applyChannelModalFilters();
-        return;
-    }
-
-    // 4. Pagination — existing behaviour
+    // 3. Pagination — existing behaviour
     const btn = e.target.closest('[data-page-action]');
     if (!btn || btn.dataset.pageKind !== 'ch-story') return;
     const total = (state.chModalStories || []).length;

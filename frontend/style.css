@@ -537,6 +537,13 @@ tr.channel-row:focus { outline: none; background: #eef2f4; box-shadow: inset 2px
 .pie-chart path { transition: opacity 0.15s; cursor: default; }
 .pie-chart:hover path { opacity: 0.55; }
 .pie-chart:hover path:hover { opacity: 1; }
+/* When a slice is locked in as the filter, hold that same dim-the-rest look
+   without needing the cursor to be over the chart. */
+.pie-chart.pie-has-selection path { opacity: 0.35; }
+.pie-chart.pie-has-selection path.pie-slice-selected { opacity: 1; }
+.pie-chart.pie-has-selection:hover path { opacity: 0.35; }
+.pie-chart.pie-has-selection:hover path:hover,
+.pie-chart.pie-has-selection path.pie-slice-selected { opacity: 1; }
 .pie-legend {
     list-style: none;
     margin: 0;
@@ -590,46 +597,6 @@ tr.channel-row:focus { outline: none; background: #eef2f4; box-shadow: inset 2px
     margin-bottom: 8px;
 }
 .ch-modal-filter-row .results-count { margin-left: auto; }
-
-.ch-modal-active-filters {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin: 0 0 10px;
-    min-height: 0;
-}
-.ch-modal-active-filters:empty { display: none; }
-.filter-chip-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--tr-text-light);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-right: 4px;
-}
-.filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    font-family: 'Knowledge', 'Clario', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    border-radius: 2px;
-    border: 1px solid rgba(214, 64, 0, 0.35);
-    background: rgba(214, 64, 0, 0.08);
-    color: var(--tr-orange);
-    cursor: pointer;
-}
-.filter-chip:hover { background: rgba(214, 64, 0, 0.16); }
-.filter-chip-x { font-size: 10px; opacity: 0.7; }
-.filter-chip-clear-all {
-    border-color: var(--tr-border);
-    background: #fff;
-    color: var(--tr-text-light);
-}
-.filter-chip-clear-all:hover { color: var(--tr-racing-green); border-color: var(--tr-racing-green); background: #fff; }
 
 .ch-modal-empty {
     padding: 24px 16px;
