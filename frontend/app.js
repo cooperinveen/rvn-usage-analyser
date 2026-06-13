@@ -500,9 +500,9 @@ function renderChannelTable() {
                 </div>
             </td>
             <td class="col-num">${c.stories.toLocaleString()}</td>
-            <td class="col-significance">${significanceDisplay(c.significance)}</td>
             <td class="col-time">${escHtml(c.total_air_time)}</td>
             <td class="col-trend">${sparkline}</td>
+            <td class="col-significance">${significanceDisplay(c.significance)}</td>
         </tr>`;
     }).join('');
 }
