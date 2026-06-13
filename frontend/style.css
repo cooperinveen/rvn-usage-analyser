@@ -498,17 +498,7 @@ tr.channel-row:focus { outline: none; background: #eef2f4; box-shadow: inset 2px
     .modal-overview { grid-template-columns: 1fr; gap: 16px; }
 }
 
-/* Channel modal summary caption + country pie */
-.modal-summary-caption {
-    margin: 0 0 14px;
-    font-size: 13px;
-    color: var(--tr-text-light);
-    line-height: 1.5;
-}
-.modal-summary-caption strong {
-    color: var(--tr-text);
-    font-weight: 600;
-}
+/* Channel modal country pie */
 .pie-title {
     font-size: 11px;
     font-weight: 700;
@@ -715,10 +705,28 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     flex-shrink: 0;
 }
-.modal-title-wrap { display: flex; flex-direction: column; gap: 4px; }
+.modal-title-wrap { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .modal-slug { font-size: 18px; font-weight: 700; color: var(--tr-orange); word-break: break-word; }
 .modal-headline { font-size: 13px; color: var(--tr-text); margin-top: 2px; }
 .modal-headline:empty { display: none; }
+/* Channel modal: home region label on the left, summary stats right-aligned
+   on the same baseline. Wraps cleanly on narrow widths. */
+.ch-modal-subhead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+.ch-modal-subhead .modal-headline { margin-top: 0; }
+.ch-modal-summary {
+    font-size: 13px;
+    color: var(--tr-text-light);
+    line-height: 1.5;
+    text-align: right;
+}
+.ch-modal-summary strong { color: var(--tr-text); font-weight: 600; }
 .modal-meta-row { display: flex; flex-wrap: wrap; align-items: baseline; margin-top: 4px; }
 .modal-first-aired { font-size: 12px; color: var(--tr-text-light); }
 .modal-asset-length { font-size: 12px; color: var(--tr-text-light); font-style: italic; }

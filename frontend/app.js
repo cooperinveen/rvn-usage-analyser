@@ -722,7 +722,7 @@ function closeModal() {
 const channelModal = $('channel-modal');
 const chModalName = $('ch-modal-name');
 const chModalCountry = $('ch-modal-country');
-const chModalActive = $('ch-modal-active');
+const chModalSummary = $('ch-modal-summary');
 const chModalBody = $('ch-modal-body');
 
 function openChannelModal(channelName) {
@@ -730,7 +730,16 @@ function openChannelModal(channelName) {
     if (!c) return;
     chModalName.textContent = c.channel;
     chModalCountry.textContent = c.country || '';
-    chModalActive.textContent = '';
+    // Promoted from the body — sits right-aligned next to the country label.
+    // innerHTML is safe here: all interpolated values are server-cast ints or
+    // the _seconds_to_hms string (no user-controlled content).
+    const daysWord = c.days_active === 1 ? 'day' : 'days';
+    chModalSummary.innerHTML = `
+        <strong>${c.airings.toLocaleString()}</strong> airings of
+        <strong>${c.stories.toLocaleString()}</strong> stories over
+        <strong>${c.days_active}</strong> ${daysWord}
+        (<strong>${escHtml(c.total_air_time)}</strong> total air time)
+    `;
     // Each modal open starts with a clean slate — no filter leakage between channels
     state.chModalRegion = 'all';
     state.chModalCountry = null;
@@ -757,24 +766,13 @@ function renderChannelModalBody(c) {
         <ul class="modal-mini-panel">
             ${topStory ? `<li><span class="mini-label">Top story</span><span class="mini-value">${escHtml(displaySlug(topStory))} <span class="mini-sub">(${topStory.airings.toLocaleString()} airings)</span></span></li>` : ''}
             <li><span class="mini-label">Avg clip used</span><span class="mini-value">${escHtml(c.avg_clip)}</span></li>
-            <li><span class="mini-label">Last aired</span><span class="mini-value">${escHtml(c.last_seen || '—')}</span></li>
         </ul>
-    `;
-
-    const summaryCaption = `
-        <p class="modal-summary-caption">
-            <strong>${c.airings.toLocaleString()}</strong> airings of
-            <strong>${c.stories.toLocaleString()}</strong> stories over
-            <strong>${c.days_active}</strong> day${c.days_active === 1 ? '' : 's'}
-            (<strong>${escHtml(c.total_air_time)}</strong> total air time)
-        </p>
     `;
 
     chModalBody.innerHTML = `
         <div class="modal-section">
             <div class="modal-overview">
                 <div class="modal-overview-stats">
-                    ${summaryCaption}
                     <h4 class="pie-title">Story origins by airings</h4>
                     ${pie || '<p class="pie-empty">No country data available.</p>'}
                 </div>
