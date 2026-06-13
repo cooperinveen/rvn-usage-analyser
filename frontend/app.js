@@ -667,34 +667,20 @@ function renderDayContext(s) {
         isOther: false,
     }));
 
-    let otherAirings = Math.max(0, total - topSum);
-
-    // If the current story's family is outside the top 5, peel it out of
-    // Other into its own segment so producers can always find their story
-    // in the bar. s.airings is a proxy for the family's day airings —
-    // slight underestimate only when the family has multiple stories that
-    // day all outside the top 5 (rare).
-    if (!inTop && s.family) {
-        const selfAirings = Math.min(s.airings || 0, otherAirings);
-        if (selfAirings > 0) {
-            segments.push({
-                family: s.family,
-                pct: 100 * selfAirings / total,
-                rankClass: 'rank-self',
-                isCurrent: true,
-                isOther: false,
-            });
-            otherAirings -= selfAirings;
-        }
-    }
-
+    const otherAirings = Math.max(0, total - topSum);
     if (otherAirings > 0) {
-        const remaining = day.family_count - top.length - (inTop ? 0 : 1);
+        const remaining = day.family_count - top.length;
+        // When this story's family is outside the top 5, mark Other as
+        // current — the story lives inside that bucket, so highlighting
+        // Other is a truthful "you're somewhere in here" signal and
+        // avoids the unreadable hairline-sliver problem we'd get from
+        // peeling out s.airings into its own segment.
+        const otherIsCurrent = !inTop && Boolean(s.family);
         segments.push({
             family: remaining > 0 ? `Other (${remaining} ${remaining === 1 ? 'family' : 'families'})` : 'Other',
             pct: 100 * otherAirings / total,
             rankClass: 'is-other',
-            isCurrent: false,
+            isCurrent: otherIsCurrent,
             isOther: true,
         });
     }
@@ -706,9 +692,10 @@ function renderDayContext(s) {
             seg.rankClass,
             seg.isCurrent ? 'is-current' : '',
         ].filter(Boolean).join(' ');
+        const label = familyLabel(seg.family, seg.isOther);
         const tip = seg.isCurrent
-            ? `${seg.family} · ${seg.pct.toFixed(1)}% (this story)`
-            : `${seg.family} · ${seg.pct.toFixed(1)}%`;
+            ? `${label} · ${seg.pct.toFixed(1)}% (this story)`
+            : `${label} · ${seg.pct.toFixed(1)}%`;
         return `<div class="${cls}" style="flex-grow: ${seg.pct.toFixed(3)};" title="${escHtml(tip)}">${showLabel ? `<span class="seg-pct">${Math.round(seg.pct)}%</span>` : ''}</div>`;
     }).join('');
 
@@ -718,6 +705,15 @@ function renderDayContext(s) {
             <div class="day-stack-bar" role="img" aria-label="Family share of airings on ${escHtml(dateLabel)}">${bar}</div>
         </div>
     `;
+}
+
+// Slug families in Reuters' master slug format end with a trailing '/'
+// (IRAN-CRISIS/ , USA-SCREWWORM/). The backend stores the stem alone for
+// grouping; this appends the '/' purely for display, and leaves the
+// synthetic "Other" buckets untouched.
+function familyLabel(family, isOther) {
+    if (isOther || !family) return family || '';
+    return family.endsWith('/') ? family : `${family}/`;
 }
 
 function formatDayLabel(ymd) {

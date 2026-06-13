@@ -817,7 +817,6 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
 .day-stack-seg.rank-3 { background: var(--tr-dark-gold); }
 .day-stack-seg.rank-4 { background: #8a6a3b; }
 .day-stack-seg.rank-5 { background: #6c757d; }
-.day-stack-seg.rank-self { background: var(--tr-racing-green); }
 .day-stack-seg.is-other { background: #c9ced3; color: var(--tr-text); }
 /* Current-story marker: Racing Green outline inset, sits on top of
    whichever rank colour the segment had. */
