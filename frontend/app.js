@@ -191,6 +191,18 @@ function showUploadScreen() {
 $('btn-new-upload').addEventListener('click', showUploadScreen);
 
 // ── Summary Bar ─────────────────────────────────────────────────────────────
+// Pick a random banner photo once per page load so the hero feels fresh on each
+// visit but stays stable while the dashboard is in use. Files are pre-cropped to
+// 1920×400 (frontend/images/banners/banner-01..18.jpg); CSS center-crops to fit.
+const BANNER_COUNT = 18;
+function setRandomBanner() {
+    const n = Math.floor(Math.random() * BANNER_COUNT) + 1;
+    const file = `images/banners/banner-${String(n).padStart(2, '0')}.jpg`;
+    const bar = $('summary-bar');
+    if (bar) bar.style.backgroundImage = `url('${file}')`;
+}
+setRandomBanner();
+
 function renderSummaryBar() {
     const s = state.summary;
     $('stat-stories').textContent = s.total_stories.toLocaleString();

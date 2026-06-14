@@ -182,7 +182,11 @@ body {
 
 /* ── Summary Bar ── */
 .summary-bar {
-    background: var(--tr-racing-green);
+    position: relative;
+    background-color: var(--tr-racing-green); /* fallback while/if image absent */
+    background-size: cover;       /* fill the bar, crop overflow — no stretch */
+    background-position: center;  /* keep the centre of the photo */
+    background-repeat: no-repeat;
     color: #fff;
     display: flex;
     align-items: center;
@@ -190,9 +194,20 @@ body {
     padding: 16px 32px;
     gap: 0;
     flex-wrap: wrap;
+    overflow: hidden;
 }
+/* Dark gradient scrim over the photo so the white stats stay readable while the
+   photo's own colours show through. Sits above the image, below the stats. */
+.summary-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(10,24,12,0.35) 0%, rgba(10,24,12,0.62) 100%);
+    z-index: 0;
+}
+.summary-bar > * { position: relative; z-index: 1; }
 .summary-stat { text-align: center; padding: 4px 32px; }
-.stat-value { display: block; font-size: 28px; font-weight: 700; color: #fff; line-height: 1.1; }
+.stat-value { display: block; font-size: 28px; font-weight: 700; color: #fff; line-height: 1.1; text-shadow: 0 1px 3px rgba(0,0,0,0.35); }
 .stat-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.65); margin-top: 3px; }
 .summary-divider { width: 1px; height: 40px; background: rgba(255,255,255,0.2); }
 
@@ -391,7 +406,7 @@ tr.story-row:focus { outline: none; background: #eef2f4; box-shadow: inset 2px 0
 .col-trend { width: 100px; }
 .col-longevity { width: 90px; text-align: right; }
 .col-date { width: 140px; font-size: 12px; color: var(--tr-text-light); }
-.col-channel { width: auto; min-width: 220px; }
+.col-channel { width: 260px; min-width: 220px; }
 .col-country { width: 130px; }
 td.col-longevity { text-align: right; font-variant-numeric: tabular-nums; }
 .channel-cell-main { font-weight: 500; color: var(--tr-text); }
