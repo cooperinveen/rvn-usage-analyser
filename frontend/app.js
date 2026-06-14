@@ -377,7 +377,6 @@ function applyFilters() {
 function renderTable() {
     const start = (state.currentPage - 1) * state.pageSize;
     const page = state.filteredStories.slice(start, start + state.pageSize);
-    const maxAirings = state.filteredStories[0]?.airings || 1;
 
     if (page.length === 0) {
         storiesTbody.innerHTML = `
@@ -395,7 +394,6 @@ function renderTable() {
     }
 
     storiesTbody.innerHTML = page.map(s => {
-        const barWidth = Math.max(2, Math.round(s.airings / maxAirings * 60));
         const sparkline = renderSparkline(s.trend, state.trendLabels, state.trendUnit);
         const publishDisplay = s.publish_time ? escHtml(s.publish_time) : '<span class="muted">—</span>';
         return `
@@ -404,18 +402,13 @@ function renderTable() {
                 <div class="slug-main">${escHtml(displaySlug(s))}</div>
                 ${s.headline ? `<div class="slug-headline">${escHtml(s.headline)}</div>` : ''}
             </td>
-            <td class="col-num">
-                <div class="airing-bar-wrap">
-                    <div class="airing-bar" style="width:${barWidth}px"></div>
-                    <span>${s.airings.toLocaleString()}</span>
-                </div>
-            </td>
             <td class="col-num">${s.channels}</td>
             <td class="col-num">${s.countries}</td>
+            <td class="col-num">${s.airings.toLocaleString()}</td>
             <td class="col-time">${escHtml(s.total_air_time)}</td>
             <td class="col-trend">${sparkline}</td>
-            <td class="col-longevity">${longevityDisplay(s.longevity)}</td>
             <td class="col-significance">${reachDisplay(s.reach)}</td>
+            <td class="col-longevity">${longevityDisplay(s.longevity)}</td>
             <td class="col-date">${publishDisplay}</td>
         </tr>`;
     }).join('');
