@@ -961,6 +961,28 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
     margin-bottom: 20px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* Determinate progress ring — same 56px footprint as the spinner. Rotated -90°
+   so the fill starts at 12 o'clock; stroke-dashoffset is set from JS. */
+.progress-ring { width: 56px; height: 56px; margin-bottom: 20px; transform: rotate(-90deg); }
+.progress-ring-track { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 4; }
+.progress-ring-fill {
+    fill: none;
+    stroke: var(--tr-orange);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-dasharray: 163.4;   /* 2π·26 */
+    stroke-dashoffset: 163.4;  /* start empty; JS lowers toward 0 */
+    transition: stroke-dashoffset 0.2s ease;
+}
+.progress-ring-pct {
+    /* counter-rotate the label so text stays upright inside the rotated svg */
+    transform: rotate(90deg);
+    transform-origin: 30px 30px;
+    fill: #fff;
+    font-family: 'Knowledge', 'Clario', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+}
 .loading-text { font-size: 20px; font-weight: 500; margin: 0 0 6px; }
 .loading-sub { font-size: 14px; color: rgba(255,255,255,0.65); margin: 0; }
 

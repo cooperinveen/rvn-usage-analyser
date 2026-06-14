@@ -73,12 +73,17 @@ async function uploadFile(file) {
     showLoading('Uploading…', 'Sending file to server');
 
     try {
-        // Step 1: upload directly to Vercel Blob (no 4.5 MB limit)
-        showLoading('Uploading…', 'Transferring file — large files may take a moment');
+        // Step 1: upload directly to Vercel Blob (no 4.5 MB limit).
+        // Real progress ring — driven by actual bytes sent (see uploadToBlob).
+        showLoading('Uploading…', 'Transferring file to secure storage');
+        showLoadingRing(0);
         const blobResult = await uploadToBlob(file);
 
-        // Step 2: ask Flask to fetch from blob, parse, and return aggregated data
+        // Step 2: ask Flask to fetch from blob, parse, and return aggregated data.
+        // No measurable progress here (single request, whole-response wait), so
+        // fall back to the indeterminate spinner rather than fake a percentage.
         showLoading('Analysing your data…', 'Processing — this may take a moment for large files');
+        showLoadingSpinner();
         const res = await fetch('/api/process', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -129,22 +134,31 @@ async function uploadToBlob(file) {
     // Step 2: PUT the file directly to Vercel Blob (no 4.5 MB limit)
     // access=public is required for browser-side PUT uploads (CORS)
     // Vercel Blob API expects pathname as a query param: /?pathname=<name>
-    const uploadRes = await fetch(`https://blob.vercel-storage.com/?pathname=${encodeURIComponent(pathname)}`, {
-        method: 'PUT',
-        headers: {
-            'authorization': `Bearer ${clientToken}`,
-            'x-api-version': '9',
-            'x-content-length': String(file.size),
-        },
-        body: file,
+    // Uses XMLHttpRequest (not fetch) so upload.onprogress can drive the real
+    // progress ring — fetch() gives no upload-progress events.
+    const responseText = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', `https://blob.vercel-storage.com/?pathname=${encodeURIComponent(pathname)}`);
+        xhr.setRequestHeader('authorization', `Bearer ${clientToken}`);
+        xhr.setRequestHeader('x-api-version', '9');
+        xhr.setRequestHeader('x-content-length', String(file.size));
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) setLoadingRing(e.loaded / e.total);
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                setLoadingRing(1);
+                resolve(xhr.responseText);
+            } else {
+                reject(new Error(`File upload to storage failed (${xhr.status}). ${xhr.responseText || ''}`));
+            }
+        };
+        xhr.onerror = () => reject(new Error('File upload to storage failed (network error).'));
+        xhr.send(file);
     });
-    if (!uploadRes.ok) {
-        const errText = await uploadRes.text().catch(() => '');
-        throw new Error(`File upload to storage failed (${uploadRes.status}). ${errText}`);
-    }
     // Vercel Blob may return empty body on overwrite — fall back to constructing URL from known store
     let blobData;
-    try { blobData = await uploadRes.json(); } catch {}
+    try { blobData = JSON.parse(responseText); } catch {}
     const url = blobData?.url || `https://Wu7t55j7ojJBLHfF.public.blob.vercel-storage.com/${encodeURIComponent(pathname)}`;
     return { url };
 }
@@ -1458,6 +1472,7 @@ document.addEventListener('click', e => {
 });
 
 // ── Loading helpers ──────────────────────────────────────────────────────────
+const RING_CIRCUMFERENCE = 163.4; // 2π·26, must match .progress-ring-fill dasharray
 function showLoading(text, sub) {
     loadingText.textContent = text || 'Loading…';
     $('loading-sub').textContent = sub || '';
@@ -1465,6 +1480,23 @@ function showLoading(text, sub) {
 }
 function hideLoading() {
     loadingOverlay.style.display = 'none';
+    showLoadingSpinner(); // reset to spinner for the next open
+}
+// Indeterminate mode — used when we can't measure progress (analyse phase).
+function showLoadingSpinner() {
+    $('loading-spinner').style.display = '';
+    $('loading-ring').style.display = 'none';
+}
+// Determinate mode — show the ring and set it to a 0–1 fraction (upload phase).
+function showLoadingRing(fraction) {
+    $('loading-spinner').style.display = 'none';
+    $('loading-ring').style.display = '';
+    setLoadingRing(fraction);
+}
+function setLoadingRing(fraction) {
+    const f = Math.max(0, Math.min(1, fraction || 0));
+    $('loading-ring-fill').style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - f);
+    $('loading-ring-pct').textContent = Math.round(f * 100) + '%';
 }
 
 // ── Upload error helpers ─────────────────────────────────────────────────────

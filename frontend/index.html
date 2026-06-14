@@ -307,7 +307,15 @@
 
 <!-- Loading overlay -->
 <div class="loading-overlay" id="loading-overlay" style="display:none">
-    <div class="spinner"></div>
+    <!-- Indeterminate spinner: shown when we can't measure progress (analyse phase) -->
+    <div class="spinner" id="loading-spinner"></div>
+    <!-- Determinate ring: shown when we have real progress (upload phase). The
+         dash offset is driven from JS; circumference of an r=26 circle ≈ 163.4 -->
+    <svg class="progress-ring" id="loading-ring" viewBox="0 0 60 60" style="display:none" aria-hidden="true">
+        <circle class="progress-ring-track" cx="30" cy="30" r="26"></circle>
+        <circle class="progress-ring-fill" id="loading-ring-fill" cx="30" cy="30" r="26"></circle>
+        <text class="progress-ring-pct" id="loading-ring-pct" x="30" y="30" text-anchor="middle" dominant-baseline="central">0%</text>
+    </svg>
     <p class="loading-text" id="loading-text">Analysing your data...</p>
     <p class="loading-sub" id="loading-sub">This may take a moment for large files</p>
 </div>
