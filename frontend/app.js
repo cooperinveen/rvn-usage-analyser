@@ -355,7 +355,7 @@ function renderTable() {
 
     if (page.length === 0) {
         storiesTbody.innerHTML = `
-            <tr><td colspan="8">
+            <tr><td colspan="9">
                 <div class="empty-state">
                     <svg class="empty-state-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="7" cy="7" r="5"/>
@@ -389,6 +389,7 @@ function renderTable() {
             <td class="col-time">${escHtml(s.total_air_time)}</td>
             <td class="col-trend">${sparkline}</td>
             <td class="col-longevity">${longevityDisplay(s.longevity)}</td>
+            <td class="col-significance">${reachDisplay(s.reach)}</td>
             <td class="col-date">${publishDisplay}</td>
         </tr>`;
     }).join('');
@@ -589,8 +590,8 @@ function renderModalBody(s) {
                             <span class="stat-card-label">Countries</span>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-card-value">${s.days_in_rotation}</span>
-                            <span class="stat-card-label">Days in rotation</span>
+                            <span class="stat-card-value">${reachDisplay(s.reach, true)}</span>
+                            <span class="stat-card-label">Reach</span>
                         </div>
                         <div class="stat-card">
                             <span class="stat-card-value">${escHtml(s.total_air_time)}</span>
@@ -1516,6 +1517,16 @@ function significanceDisplay(score, plain) {
     const cls = score >= 66 ? 'significance-high' : score >= 33 ? 'significance-mid' : 'significance-low';
     const variant = plain ? 'significance-plain' : '';
     return `<span class="significance ${cls} ${variant}" title="Composite of airings volume, story breadth, and geographic diversity (0–100, relative to this dataset)">${score}</span>`;
+}
+
+// Story reach — 0–100 breadth score, mean of percentile-ranked distinct
+// channels and distinct countries within this dataset. Complements the airings
+// column (volume) and reuses the significance pill idiom so the columns match.
+function reachDisplay(score, plain) {
+    if (score == null) return `<span class="significance significance-na" title="No reach score">—</span>`;
+    const cls = score >= 66 ? 'significance-high' : score >= 33 ? 'significance-mid' : 'significance-low';
+    const variant = plain ? 'significance-plain' : '';
+    return `<span class="significance ${cls} ${variant}" title="Breadth of pickup — distinct channels and countries, percentile-ranked (0–100, relative to this dataset)">${score}</span>`;
 }
 
 function renderTrendChart(counts, labels, unit) {

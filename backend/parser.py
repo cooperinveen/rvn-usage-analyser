@@ -409,6 +409,20 @@ def parse_file(file_bytes, filename):
             'family': _slug_family(slug),
         })
 
+    # Reach score: a single 0–100 per story rewarding breadth of pickup rather
+    # than raw volume. Mean of two percentile sub-scores — distinct channels and
+    # distinct countries. A story aired 500x on one channel scores low; one aired
+    # a few times each across 50 channels in 40 countries scores high. Volume
+    # stays in the separate airings column. Dataset-relative, like channel
+    # significance — a story's reach depends on the other stories present.
+    if stories:
+        rch_channels = _percentile_ranks([s['channels'] for s in stories])
+        rch_countries = _percentile_ranks([s['countries'] for s in stories])
+        for i, s in enumerate(stories):
+            s['reach_channels'] = int(round(rch_channels[i]))
+            s['reach_countries'] = int(round(rch_countries[i]))
+            s['reach'] = int(round((rch_channels[i] + rch_countries[i]) / 2.0))
+
     # Sort by airings descending
     stories.sort(key=lambda x: x['airings'], reverse=True)
 
@@ -684,10 +698,10 @@ def generate_top_export(kind, rows, title=None):
         ws.title = title or "Top Stories"
         headers = [
             'Story Slug', 'Headline', 'Airings', 'Channels', 'Countries',
-            'Total Air Time', 'Avg Clip Used', 'Longevity', 'Date Published',
+            'Total Air Time', 'Avg Clip Used', 'Longevity', 'Reach', 'Date Published',
             'Days in Rotation', 'First Aired', 'Top Channel', 'Top Country',
         ]
-        col_widths = [30, 50, 10, 10, 12, 16, 14, 12, 20, 12, 20, 25, 20]
+        col_widths = [30, 50, 10, 10, 12, 16, 14, 12, 10, 20, 12, 20, 25, 20]
 
         def row_for(s):
             top_ch = ''
@@ -706,6 +720,7 @@ def generate_top_export(kind, rows, title=None):
                 s.get('total_air_time', ''),
                 s.get('avg_clip', ''),
                 longevity_str,
+                s.get('reach', ''),
                 s.get('publish_time', ''),
                 s.get('days_in_rotation', 0),
                 s.get('first_seen', ''),
