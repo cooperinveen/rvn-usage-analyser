@@ -859,12 +859,26 @@ function closeChannelModal() {
 $('ch-modal-close').addEventListener('click', closeChannelModal);
 channelModal.addEventListener('click', e => { if (e.target === channelModal) closeChannelModal(); });
 
+// Cap the rows rendered into a PNG export. Top stories aired on 1,000+
+// channels (and big channels air 100s of stories); a fully-expanded table
+// produces a canvas taller than the browser's ~65,535px ceiling, which makes
+// html2canvas/toDataURL silently return a BLANK image. 100 rows keeps the
+// export well under the limit and shareable, and the note below tells the
+// reader what was trimmed so nothing is dropped silently.
+const EXPORT_ROW_CAP = 100;
+
+// Returns a single full-width <tr> note row when the export was capped, else ''.
+function exportCapNoteRow(shown, total, noun, cols) {
+    if (total <= shown) return '';
+    return `<tr class="export-cap-note"><td colspan="${cols}">Showing top ${shown.toLocaleString()} of ${total.toLocaleString()} ${noun} — full list available in the app and the Excel export.</td></tr>`;
+}
+
 // ── Channel modal: download view as PNG ────────────────────────────────────
-// Expands the paginated story list to render every filtered row, hides the
-// download/close controls (they don't belong in the export), captures the
-// whole modal at 2x scale via html2canvas, then restores the previous DOM
-// state. Filename includes channel + active filters so two downloads from
-// the same channel don't collide.
+// Expands the paginated story list to render every filtered row (capped at
+// EXPORT_ROW_CAP), hides the download/close controls (they don't belong in
+// the export), captures the whole modal at 2x scale via html2canvas, then
+// restores the previous DOM state. Filename includes channel + active filters
+// so two downloads from the same channel don't collide.
 $('ch-modal-download').addEventListener('click', async () => {
     if (typeof html2canvas === 'undefined') {
         showToast('Image library still loading — try again in a moment.');
@@ -897,10 +911,12 @@ $('ch-modal-download').addEventListener('click', async () => {
     showToast('Preparing image…');
 
     try {
-        // 1. Expand the story list to ALL filtered rows (no pagination).
+        // 1. Expand the story list to the filtered rows, capped at EXPORT_ROW_CAP
+        //    (the breakdown is sorted airings-desc, so the cap keeps the top N).
         if (tbody) {
             const all = state.chModalStories || [];
-            tbody.innerHTML = all.map(s => `
+            const shown = all.slice(0, EXPORT_ROW_CAP);
+            tbody.innerHTML = (shown.map(s => `
                 <tr>
                     <td>
                         <div class="slug-main">${escHtml(displaySlug(s))}</div>
@@ -908,7 +924,7 @@ $('ch-modal-download').addEventListener('click', async () => {
                     </td>
                     <td class="num">${s.airings}</td>
                     <td class="num">${escHtml(s.air_time)}</td>
-                </tr>`).join('') || stash.tbodyHTML;
+                </tr>`).join('') + exportCapNoteRow(shown.length, all.length, 'stories', 3)) || stash.tbodyHTML;
         }
         if (pagination) pagination.innerHTML = '';
 
@@ -945,6 +961,101 @@ $('ch-modal-download').addEventListener('click', async () => {
         showToast('Sorry — image export failed. Try again?');
     } finally {
         // Restore everything we changed
+        if (tbody) tbody.innerHTML = stash.tbodyHTML;
+        if (pagination) pagination.innerHTML = stash.paginationHTML;
+        if (body) {
+            body.style.maxHeight = stash.bodyMaxHeight;
+            body.style.overflowY = stash.bodyOverflow;
+        }
+        modal.style.maxHeight = stash.modalMaxHeight;
+        modal.style.overflow = stash.modalOverflow;
+        if (footer) footer.style.display = stash.footerDisplay;
+        if (closeBtn) closeBtn.style.display = stash.closeDisplay;
+        downloadBtn.disabled = false;
+        downloadBtn.classList.remove('is-loading');
+    }
+});
+
+// ── Story modal: download view as PNG ──────────────────────────────────────
+// Same approach as the channel-modal download: expand the paginated channel
+// breakdown to every row, hide the download/close chrome, capture the whole
+// modal at 2x, then restore. Filename is the story slug.
+$('story-modal-download').addEventListener('click', async () => {
+    if (typeof html2canvas === 'undefined') {
+        showToast('Image library still loading — try again in a moment.');
+        return;
+    }
+    const modal = storyModal.querySelector('.modal');
+    if (!modal) return;
+
+    const downloadBtn = $('story-modal-download');
+    const closeBtn = $('modal-close');
+    const footer = modal.querySelector('.modal-footer');
+    const tbody = document.getElementById('modal-channel-tbody');
+    const pagination = document.getElementById('modal-channel-pagination');
+    const body = modal.querySelector('.modal-body');
+
+    const stash = {
+        tbodyHTML: tbody ? tbody.innerHTML : '',
+        paginationHTML: pagination ? pagination.innerHTML : '',
+        bodyMaxHeight: body ? body.style.maxHeight : '',
+        bodyOverflow: body ? body.style.overflowY : '',
+        modalMaxHeight: modal.style.maxHeight,
+        modalOverflow: modal.style.overflow,
+        footerDisplay: footer ? footer.style.display : '',
+        closeDisplay: closeBtn ? closeBtn.style.display : '',
+    };
+
+    downloadBtn.disabled = true;
+    downloadBtn.classList.add('is-loading');
+    showToast('Preparing image…');
+
+    try {
+        // 1. Expand the channel breakdown, capped at EXPORT_ROW_CAP (sorted
+        //    airings-desc, so the cap keeps the top N).
+        if (tbody) {
+            const all = state.modalChannels || [];
+            const shown = all.slice(0, EXPORT_ROW_CAP);
+            tbody.innerHTML = (shown.map(c => `
+                <tr>
+                    <td>${escHtml(c.channel || '')}</td>
+                    <td>${escHtml(c.country || '')}</td>
+                    <td class="num">${c.airings}</td>
+                    <td class="num">${escHtml(c.air_time)}</td>
+                </tr>`).join('') + exportCapNoteRow(shown.length, all.length, 'channels', 4)) || stash.tbodyHTML;
+        }
+        if (pagination) pagination.innerHTML = '';
+
+        // 2. Let the modal grow to its natural height for a single capture.
+        if (body) { body.style.maxHeight = 'none'; body.style.overflowY = 'visible'; }
+        modal.style.maxHeight = 'none';
+        modal.style.overflow = 'visible';
+
+        // 3. Hide the chrome we don't want in the export.
+        if (footer) footer.style.display = 'none';
+        if (closeBtn) closeBtn.style.display = 'none';
+
+        // 4. Force a layout pass so html2canvas sees the new heights.
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const canvas = await html2canvas(modal, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+            windowWidth: document.documentElement.clientWidth,
+        });
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${slugifyForFilename(modalSlug.textContent)}.png`;
+        a.click();
+        showToast('Image downloaded.');
+    } catch (err) {
+        console.error('Download failed:', err);
+        showToast('Sorry — image export failed. Try again?');
+    } finally {
         if (tbody) tbody.innerHTML = stash.tbodyHTML;
         if (pagination) pagination.innerHTML = stash.paginationHTML;
         if (body) {

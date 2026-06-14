@@ -817,6 +817,15 @@ td.col-date { font-size: 12px; color: var(--tr-text-light); }
     cursor: progress;
 }
 .modal-download-label { line-height: 1; }
+/* Caption row appended to a capped PNG export — not a data row */
+.export-cap-note td {
+    text-align: center;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--tr-text-light);
+    background: var(--tr-bg);
+    padding: 10px;
+}
 .modal-loading { text-align: center; color: var(--tr-text-light); padding: 40px; }
 
 /* Modal sections */
